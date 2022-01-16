@@ -1,0 +1,16 @@
+{
+  "processes": [
+    "KRX"
+  ],
+  "server": {
+    "host": "0.0.0.0",
+    "port": 5001,
+    "sslcert": null
+  },
+  "database": {
+    "host": "192.168.0.254",
+    "port": 5432,
+    "dbname": "stockstack",
+    "user": "stockstack"
+  }
+}
