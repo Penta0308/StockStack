@@ -1,5 +1,9 @@
 import json
 
+SPECIAL_WORDS = [
+    "stsk_"
+]
+
 
 class Settings:
     _settings = None

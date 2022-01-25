@@ -1,4 +1,5 @@
-import code
+import logging
+import argparse
 
 from stockstack.network.auth import Auth
 from stockstack.network.gateway import Gateway
@@ -39,7 +40,7 @@ if __name__ == '__main__':
     marketidents = Settings.get()["processes"]
     dbinfo = {**(Settings.get()['database']), **(Settings.get_secrets()['database'])}
 
-    from stockstack.worker import WorkerProcess
+    from stockstack.worker import WorkerManager
 
     auth = Auth(dbinfo)
 
@@ -52,15 +53,14 @@ if __name__ == '__main__':
     }
     """
 
-    for marketident in marketidents:
-        workerprocess = WorkerProcess(dbinfo)
-        workerprocess.start()
-        workerprocess.queue(f'load {marketident}')
-        gateway.workers_register(marketident, workerprocess)
+    #for marketident in marketidents:
+    #    workerprocess = WorkerProcess(dbinfo)
+    #    workerprocess.start()
+    #    workerprocess.queue(f'load {marketident}')
+    #    gateway.workers_register(marketident, workerprocess)
 
     Settings.maincontext_put(globals())
 
     gateway.start()  # blocking
 
     gateway.stop()
-

@@ -1,15 +1,29 @@
 import secrets
 from enum import IntFlag
-from typing import Type, Optional
+from typing import TYPE_CHECKING, Type, Optional, Any
 
 import psycopg
 
+if TYPE_CHECKING:
+    from stockstack.network.packets import PacketR
+
 
 class Privilege(IntFlag):
-    ADMINISTRATION = 1 << 63
+    NONE = 0x0
+    LOGINSTATE = 1 << 0
+    GLOBALADMINISTRATION = 1 << 63
+    ALL = 0xFFFFFFFFFFFFFFFF    # 주어지지 말아야 하는 권한
 
-    def to_bitstring(self):
-        return format(int(self), '064b')
+    @classmethod
+    def to_bitstring(cls):
+        return format(int(cls), '064b')
+
+    @staticmethod
+    def require(privilege: 'Privilege'):
+        def decorator(packet: 'PacketR'):
+            packet.REQUIRE_PRIVILEGE = Privilege(privilege)
+            return packet
+        return decorator
 
 
 class Auth:
@@ -34,6 +48,11 @@ class Auth:
                         |((%s)::BIT(64)) WHERE uid = %s RETURNING uid""", (privilege.to_bitstring(), uid))
             return cur.fetchone()[0]
 
+    def user_get_market(self, uid: int) -> str:
+        with self.__dbconn.cursor() as cur:
+            cur.execute("""SELECT market FROM stsk_auth.apiusers WHERE uid = %s""", (uid, ))
+            return cur.fetchone()[0]
+
     def user_revoke(self, uid: int, privilege: Type[Privilege]):
         with self.__dbconn.cursor() as cur:
             cur.execute("""UPDATE stsk_auth.apiusers SET privilege = privilege
@@ -47,7 +66,7 @@ class Auth:
                         (uid, apikey))
             return cur.fetchone()[0]
 
-    def apikey_check(self, apikey):
+    def apikey_check(self, apikey) -> int | None:
         with self.__dbconn.cursor() as cur:
             cur.execute("""SELECT uid FROM stsk_auth.apikeys WHERE apikey = %s""", (apikey,), prepare=True)
             s = cur.fetchone()
@@ -56,7 +75,9 @@ class Auth:
             else:
                 return s[0]
 
-    def privilege_check(self, uid: int, privilege: Type[Privilege]):
+    def privilege_check(self, uid: Optional[int], privilege: Privilege):
+        if uid is None:
+            return privilege == Privilege.NONE
         pmask = 0
         with self.__dbconn.cursor() as cur:
             cur.execute("""SELECT privilege FROM stsk_auth.apiusers WHERE uid = %s""", (uid,), prepare=True)
