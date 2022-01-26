@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 
 import websockets
 
@@ -11,9 +12,8 @@ from stocksheet.network.packets import PACKETS
 from stocksheet.network.packets import globaladmin, hello, internalerror, marketadmin
 
 class Gateway:
-    def __init__(self, auth: Auth, port, host='127.0.0.1'):
-        self.__host = host
-        self.__port = port
+    def __init__(self, auth: Auth, socket):
+        self.__socket = socket
         self.__eventloop = None
         self.__wsserver = None
         self.auth = auth
@@ -21,7 +21,8 @@ class Gateway:
     def start(self):
         self.__eventloop = asyncio.get_event_loop()
         self.__wsserver = self.__eventloop.run_until_complete(
-            websockets.serve(self.handler_receive, self.__host, self.__port))
+            websockets.unix_serve(self.handler_receive, self.__socket))
+        os.chmod(self.__socket, 0o777)
         self.__eventloop.run_forever()
 
     def stop(self):

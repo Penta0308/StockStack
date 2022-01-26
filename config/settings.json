@@ -4,6 +4,6 @@
     "port": 5432,
     "dbname": "stockstack",
     "user": "stockstack",
-    "password": "stskpgsqlpasswd"
+    "password": "stockstack"
   }
 }
