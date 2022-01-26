@@ -15,4 +15,6 @@ services:
     volumes:
       - ./data/pgdata:/var/lib/postgresql/data:Z
     environment:
-      POSTGRES_PASSWORD: stskpgsqlpasswd
+      POSTGRES_USER: stockstack
+      POSTGRES_PASSWORD: stockstack
+      POSTGRES_DB: stockstack

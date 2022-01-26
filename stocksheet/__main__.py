@@ -36,14 +36,15 @@ kotc.close()"""
 
 if __name__ == '__main__':
     name = sys.argv[1]
-    port = sys.argv[2]
+    socket = sys.argv[2]
+    print(socket)
 
     Settings.load()
     dbinfo = {**(Settings.get()['database'])}
 
     auth = Auth(dbinfo)
 
-    gateway = Gateway(auth, port)
+    gateway = Gateway(auth, socket)
 
     Settings.maincontext_put(globals())
 

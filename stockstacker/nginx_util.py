@@ -5,16 +5,15 @@ from glob import glob
 
 
 
-def sheet_create(x, p):
+def sheet_create(x):
     """
     :param x: router name
-    :param p: port
     :return: None
     """
     with open(f'/app/data/nginxproxy/{x}.conf', 'w') as f:
         f.write(
 f"""location /{x} {{
-    proxy_pass http://localhost:{p};
+    proxy_pass http://unix:/run/stockstack/{x}.socket;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "Upgrade";
@@ -24,7 +23,7 @@ f"""location /{x} {{
 def sheet_remove(x):
     os.remove(f'/app/data/nginxproxy/{x}.conf')
 
-rx = re.compile(r"location /(?P<x>\S+?) {.*?proxy_pass http://localhost:(?P<p>\d+).*?}", flags=re.DOTALL|re.MULTILINE)
+rx = re.compile(r"location /(?P<x>\S+?) {.*?proxy_pass http://unix:(?P<p>[\w/.\\\-]+)\s*;.*?}", flags=re.DOTALL|re.MULTILINE)
 
 def sheets_read():
     p = []
@@ -38,12 +37,12 @@ if __name__ == '__main__':
     if len(sys.argv) < 2:
         print(
 """read list: r
-create: c name port
+create: c name
 delete: d name""")
     elif sys.argv[1] == 'r':
         print(sheets_read())
     elif sys.argv[1] == 'c':
-        sheet_create(sys.argv[2], int(sys.argv[3]))
+        sheet_create(sys.argv[2])
     elif sys.argv[1] == 'd':
         sheet_remove(sys.argv[2])
 
