@@ -3,7 +3,7 @@ Packet CmdLet
 :parameter  e: str, command to exec
 :returns    r: str, stdout
 """
-
+import logging
 from io import StringIO
 from contextlib import redirect_stdout
 from typing import TYPE_CHECKING
@@ -24,7 +24,7 @@ class CmdLetAct(PacketR):
 
     async def process(self):
         e = self._d['e']
-        self._connection.logger.info(f"Execution UID: {self._connection.uid} CMD: {e}")
+        logging.info(f"Execution UID: {self._connection.uid} CMD: {e}")
         from stocksheet.settings import Settings
         f = StringIO()
         with redirect_stdout(f):
@@ -51,14 +51,10 @@ class MarketStartAct(PacketR):
         super().__init__(connection, t, d)
 
     async def process(self):
-        a = self._d['a']
-        if not Settings.check_name(a):
-            raise AttributeError
+        logging.info(f"MarketStart UID: {self._connection.uid}")
+        # TODO: MARKET START
 
-        self._connection.logger.info(f"MarketStart UID: {self._connection.uid} Name: {a}")
-        self._connection.gateway.workermanager.workers_create(a)
-
-        s = {'a': a}
+        s = {}
 
         trans = MarketStartResp(self._connection, self._t, s)
         await trans.process()
@@ -66,28 +62,4 @@ class MarketStartAct(PacketR):
 
 @PACKETS.register(7)
 class MarketStartResp(PacketT):
-    pass
-
-
-@PACKETS.register(8)
-@Privilege.require(Privilege.GLOBALADMINISTRATION)
-class ConnSetMarketAct(PacketR):
-    def __init__(self, connection: 'ClientConnection', t, d):
-        super().__init__(connection, t, d)
-
-    async def process(self):
-        marketident = self._d['a']
-
-        self._connection.logger.info(f"ConnSetMarket UID: {self._connection.uid} Name: {marketident}")
-
-        mkts = self._connection.set_market(marketident)
-
-        s = {'a': mkts}
-
-        trans = ConnSetMarketResp(self._connection, self._t, s)
-        await trans.process()
-
-
-@PACKETS.register(9)
-class ConnSetMarketResp(PacketT):
     pass

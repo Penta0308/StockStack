@@ -13,7 +13,7 @@ from stocksheet.settings import Settings
 if TYPE_CHECKING:
     from stocksheet.network.connection import ClientConnection
 
-
+"""
 @PACKETS.register(10)
 @Privilege.require(Privilege.GLOBALADMINISTRATION)  # TODO: Creative Action
 class MarketCreateAct(PacketR):
@@ -21,15 +21,7 @@ class MarketCreateAct(PacketR):
         super().__init__(connection, t, d)
 
     async def process(self):
-        a = self._d['a']
-        if not Settings.check_name(a):
-            raise AttributeError
-
         self._connection.logger.info(f"MarketCreate UID: {self._connection.uid} Name: {a}")
-        mktp = self._connection.get_market()
-        if mktp is None:
-            raise AttributeError
-        mktp.queue("")
 
         s = {'a': a}
 
@@ -40,3 +32,4 @@ class MarketCreateAct(PacketR):
 @PACKETS.register(11)
 class MarketCreateResp(PacketT):
     pass
+"""

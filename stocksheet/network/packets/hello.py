@@ -4,7 +4,7 @@ Packet Hello
 :returns    uid: None or int, uid
 :returns    mkt: None or str, market name
 """
-
+import logging
 from typing import TYPE_CHECKING
 
 from stocksheet.network.packets import PACKETS, PacketR, PacketT
@@ -24,19 +24,10 @@ class HelloAct(PacketR):
     async def process(self):
         apikey = self._d['akey']
         uid = self._connection.gateway.auth.apikey_check(apikey)
-        if uid is None:
-            marketident = None
-        else:
-            marketident = self._connection.gateway.auth.user_get_market(uid)
-        self._connection.logger.info(f"Authentication UID: {str(uid)} Key: {apikey} Market {str(marketident)}")
-        try:
-            mkts = self._connection.set_market(marketident)
-        except AttributeError as e:
-            mkts = None
+        logging.info(f"Authentication UID: {str(uid)} Key: {apikey}")
         self._connection.uid = uid
         trans = HelloResp(self._connection, self._t,
-                          {'uid': self._connection.uid,
-                           'mkt': mkts})
+                          {'uid': self._connection.uid})
         await trans.process()
 
 

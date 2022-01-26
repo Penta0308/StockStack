@@ -34,29 +34,12 @@ kotc.open()
 kotc.close()"""
 
 if __name__ == '__main__':
-    multiprocessing.set_start_method('spawn')
-
     Settings.load()
     dbinfo = {**(Settings.get()['database'])}
 
-    from stocksheet.worker import WorkerManager
-
     auth = Auth(dbinfo)
 
-    gateway = Gateway(auth, **(Settings.get()['server']))
-    """
-    ,
-    "_sslcert": {
-      "cert": "cert.pem",
-      "key": "cert.pem"
-    }
-    """
-
-    #for marketident in marketidents:
-    #    workerprocess = WorkerProcess(dbinfo)
-    #    workerprocess.start()
-    #    workerprocess.queue(f'load {marketident}')
-    #    gateway.workers_register(marketident, workerprocess)
+    gateway = Gateway(auth, 5003)
 
     Settings.maincontext_put(globals())
 
