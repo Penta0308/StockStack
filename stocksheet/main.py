@@ -1,5 +1,6 @@
 import logging
 import argparse
+import sys
 
 from stocksheet.network.auth import Auth
 from stocksheet.network.gateway import Gateway
@@ -34,12 +35,15 @@ kotc.open()
 kotc.close()"""
 
 if __name__ == '__main__':
+    name = sys.argv[1]
+    port = sys.argv[2]
+
     Settings.load()
     dbinfo = {**(Settings.get()['database'])}
 
     auth = Auth(dbinfo)
 
-    gateway = Gateway(auth, 5003)
+    gateway = Gateway(auth, port)
 
     Settings.maincontext_put(globals())
 

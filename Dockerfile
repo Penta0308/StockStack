@@ -3,12 +3,10 @@ LABEL maintainer="penta@skmserver.tk"
 
 WORKDIR /app
 
-RUN apt-get update
+RUN apt-get update && apt-get install -y --no-install-recommends nginx && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /app/requirements.txt
-RUN pip install -r requirements.txt
-
-RUN apt-get install -y nginx
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . /app
 
