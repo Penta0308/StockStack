@@ -1,5 +1,6 @@
 import os
 import re
+import subprocess
 from glob import glob
 
 
@@ -47,4 +48,4 @@ delete: d name""")
         sheet_remove(sys.argv[2])
 
 def sheets_reload():
-    os.system("nginx -s reload")
+    subprocess.call('nginx -s reload', shell=False)
