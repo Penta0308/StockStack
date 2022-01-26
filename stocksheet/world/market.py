@@ -2,9 +2,9 @@ import typing
 from typing import Dict, Union
 import math
 
-from stockstack.world.order import OrderDirection, OrderBuy, OrderSell
-from stockstack.world.stock import Stock
-from stockstack.entity.trader import Trader
+from stocksheet.world.order import OrderDirection, OrderBuy, OrderSell
+from stocksheet.world.stock import Stock
+from stocksheet.entity.trader import Trader
 
 
 class MarketOpenedError(Exception):

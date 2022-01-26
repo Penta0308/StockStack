@@ -20,21 +20,11 @@ class Settings:
     @staticmethod
     def load():
         if Settings._settings is None:
-            with open('settings.json', 'r', encoding='utf-8') as f:
+            with open('config/settings.json', 'r', encoding='utf-8') as f:
                 Settings._settings = json.load(f)
-
-    @staticmethod
-    def save():
-        with open('settings.json', 'w', encoding='utf-8') as f:
-            json.dump(Settings._settings, f)
 
     @staticmethod
     def get():
         if Settings._settings is None:
             Settings.load()
         return Settings._settings
-
-    @staticmethod
-    def get_secrets():
-        with open('secrets.json', 'r', encoding='utf-8') as f:
-            return json.load(f)

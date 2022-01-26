@@ -3,11 +3,11 @@ import json
 
 from typing import TYPE_CHECKING
 
-from stockstack.network.auth import Privilege
+from stocksheet.network.auth import Privilege
 
 
 if TYPE_CHECKING:
-    from stockstack.network.connection import ClientConnection
+    from stocksheet.network.connection import ClientConnection
 
 
 class Packet:

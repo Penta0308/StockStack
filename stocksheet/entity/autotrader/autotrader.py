@@ -1,6 +1,6 @@
 import typing
 
-from stockstack.entity.trader import Trader
+from stocksheet.entity.trader import Trader
 
 
 class AutoTrader(Trader):

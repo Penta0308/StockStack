@@ -1,6 +1,6 @@
 import typing
 
-from stockstack.worker.workerprocess import WorkerProcess
+from stocksheet.worker.workerprocess import WorkerProcess
 
 
 class WorkerManager:

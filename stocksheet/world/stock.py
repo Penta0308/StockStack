@@ -1,9 +1,9 @@
 from typing import TYPE_CHECKING, List
 
-from stockstack.world.order import OrderDirection, Order
+from stocksheet.world.order import OrderDirection, Order
 
 if TYPE_CHECKING:
-    from stockstack.world.market import Market
+    from stocksheet.world.market import Market
 
 
 class Stock:

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Type, Optional, Any
 import psycopg
 
 if TYPE_CHECKING:
-    from stockstack.network.packets import PacketR
+    from stocksheet.network.packets import PacketR
 
 
 class Privilege(IntFlag):

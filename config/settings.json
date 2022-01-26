@@ -5,9 +5,10 @@
     "sslcert": null
   },
   "database": {
-    "host": "192.168.0.254",
+    "host": "db",
     "port": 5432,
     "dbname": "stockstack",
-    "user": "stockstack"
+    "user": "stockstack",
+    "password": "stskpgsqlpasswd"
   }
 }

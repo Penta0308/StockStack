@@ -1,7 +1,7 @@
 import multiprocessing
 
-from stockstack.worker.workerclass import WorkerClass
-from stockstack.worker.workertask import WorkerTask
+from stocksheet.worker.workerclass import WorkerClass
+from stocksheet.worker.workertask import WorkerTask
 
 
 class WorkerProcess:

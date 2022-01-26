@@ -1,7 +1,7 @@
 import multiprocessing
 import psycopg
 
-from stockstack.settings import Settings
+from stocksheet.settings import Settings
 
 
 class WorkerClass:

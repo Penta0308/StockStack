@@ -6,10 +6,10 @@ Packet InternalError
 
 from typing import TYPE_CHECKING
 
-from stockstack.network.packets import PACKETS, PacketT
+from stocksheet.network.packets import PACKETS, PacketT
 
 if TYPE_CHECKING:
-    from stockstack.network.connection import ClientConnection
+    from stocksheet.network.connection import ClientConnection
 
 
 @PACKETS.register(3)

@@ -1,10 +1,10 @@
 import logging
 import argparse
 
-from stockstack.network.auth import Auth
-from stockstack.network.gateway import Gateway
-from stockstack.world.market import Market
-from stockstack.settings import Settings
+from stocksheet.network.auth import Auth
+from stocksheet.network.gateway import Gateway
+from stocksheet.world.market import Market
+from stocksheet.settings import Settings
 import multiprocessing
 
 """def kotc_price_stepsize(price):
@@ -37,10 +37,9 @@ if __name__ == '__main__':
     multiprocessing.set_start_method('spawn')
 
     Settings.load()
-    marketidents = Settings.get()["processes"]
-    dbinfo = {**(Settings.get()['database']), **(Settings.get_secrets()['database'])}
+    dbinfo = {**(Settings.get()['database'])}
 
-    from stockstack.worker import WorkerManager
+    from stocksheet.worker import WorkerManager
 
     auth = Auth(dbinfo)
 

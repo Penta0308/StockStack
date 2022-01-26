@@ -3,15 +3,15 @@ from typing import TYPE_CHECKING, Optional
 
 import websockets
 
-from stockstack.network.packets import PACKETS, PacketR
-from stockstack.settings import Settings
+from stocksheet.network.packets import PACKETS, PacketR
+from stocksheet.settings import Settings
 
 # noinspection PyUnresolvedReferences
-from stockstack.network.packets import hello, internalerror, globaladmin, marketadmin
+from stocksheet.network.packets import hello, internalerror, globaladmin, marketadmin
 
 if TYPE_CHECKING:
-    from stockstack.network.gateway import Gateway
-    from stockstack.worker import WorkerProcess
+    from stocksheet.network.gateway import Gateway
+    from stocksheet.worker import WorkerProcess
 
 
 class ClientConnection:

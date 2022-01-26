@@ -7,12 +7,12 @@ Packet Hello
 
 from typing import TYPE_CHECKING
 
-from stockstack.network.packets import PACKETS, PacketR, PacketT
-from stockstack.network.auth import Privilege
-from stockstack.settings import Settings
+from stocksheet.network.packets import PACKETS, PacketR, PacketT
+from stocksheet.network.auth import Privilege
+from stocksheet.settings import Settings
 
 if TYPE_CHECKING:
-    from stockstack.network.connection import ClientConnection
+    from stocksheet.network.connection import ClientConnection
 
 
 @PACKETS.register(1)

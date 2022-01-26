@@ -1,7 +1,7 @@
 import typing
 from typing import List, Dict
 
-from stockstack.world.order import Order
+from stocksheet.world.order import Order
 
 
 class Trader:

@@ -6,12 +6,12 @@ from typing import TYPE_CHECKING
 
 import websockets
 
-from stockstack.network.auth import Auth
-from stockstack.network.packet import PACKET_OPCODE, PacketR, PacketT
-from stockstack.network.packets import cmdlet, internalerror
+from stocksheet.network.auth import Auth
+from stocksheet.network.packet import PACKET_OPCODE, PacketR, PacketT
+from stocksheet.network.packets import cmdlet, internalerror
 
 if TYPE_CHECKING:
-    from stockstack.worker import WorkerProcess
+    from stocksheet.worker import WorkerProcess
 
 
 class Gateway:
