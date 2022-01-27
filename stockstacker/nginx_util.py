@@ -38,19 +38,22 @@ def proxys_read():  # I KNOW plural proxy is proxies
             p.append(rx.match(f.read()).groupdict())
     return p
 
+HELP_MESSAGE = """read list: r
+create: c name sock
+delete: d name"""
+
 if __name__ == '__main__':
     import sys
     if len(sys.argv) < 2:
-        print(
-"""read list: r
-create: c name sock
-delete: d name""")
+        print(HELP_MESSAGE)
     elif sys.argv[1] == 'r':
         print(proxys_read())
     elif sys.argv[1] == 'c':
         proxy_create(sys.argv[2], sys.argv[3])
     elif sys.argv[1] == 'd':
         proxy_remove(sys.argv[2])
+    else:
+        print(HELP_MESSAGE)
 
 def nginx_reload():
     subprocess.call('nginx -s reload', shell=False)
