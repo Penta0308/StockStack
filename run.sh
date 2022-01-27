@@ -1,6 +1,6 @@
 #!/bin/bash
 
-rm -f /etc/nginx/sites-enabled/*
+rm --force /etc/nginx/sites-enabled/default || true
 mkdir /run/stockstack
 cp ./config/server.conf /etc/nginx/sites-enabled/server.conf
 
@@ -8,6 +8,6 @@ cp ./config/server.conf /etc/nginx/sites-enabled/server.conf
 
 #chown www-data:stockstack /run/stockstack
 
-python stockstacker/startup.py
+python -m stockstacker
 
 #nginx -s reload
