@@ -5,27 +5,33 @@ from glob import glob
 
 
 
-def sheet_create(x):
+def proxy_create(x, p = None):
     """
     :param x: router name
+    :param p: socket
     :return: None
     """
+    if p is None:
+        p = f'/run/stockstack/{x}.socket'
+
     with open(f'/app/data/nginxproxy/{x}.conf', 'w') as f:
         f.write(
 f"""location /{x} {{
-    proxy_pass http://unix:/run/stockstack/{x}.socket;
+    proxy_pass http://unix:{p};
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "Upgrade";
     proxy_set_header Origin "";
 }}""")
 
-def sheet_remove(x):
+def proxy_remove(x):
     os.remove(f'/app/data/nginxproxy/{x}.conf')
 
 rx = re.compile(r"location /(?P<x>\S+?) {.*?proxy_pass http://unix:(?P<p>[\w/.\\\-]+)\s*;.*?}", flags=re.DOTALL|re.MULTILINE)
 
-def sheets_read():
+
+# noinspection SpellCheckingInspection
+def proxys_read():  # I KNOW plural proxy is proxies
     p = []
     for x in glob('/app/data/nginxproxy/*.conf'):
         with open(x) as f:
@@ -37,14 +43,14 @@ if __name__ == '__main__':
     if len(sys.argv) < 2:
         print(
 """read list: r
-create: c name
+create: c name sock
 delete: d name""")
     elif sys.argv[1] == 'r':
-        print(sheets_read())
+        print(proxys_read())
     elif sys.argv[1] == 'c':
-        sheet_create(sys.argv[2])
+        proxy_create(sys.argv[2], sys.argv[3])
     elif sys.argv[1] == 'd':
-        sheet_remove(sys.argv[2])
+        proxy_remove(sys.argv[2])
 
-def sheets_reload():
+def nginx_reload():
     subprocess.call('nginx -s reload', shell=False)
