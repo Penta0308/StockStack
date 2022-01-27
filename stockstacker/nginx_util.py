@@ -56,4 +56,4 @@ if __name__ == '__main__':
         print(HELP_MESSAGE)
 
 def nginx_reload():
-    subprocess.call('nginx -s reload', shell=False)
+    subprocess.call('/usr/sbin/nginx -s reload', shell=False)
