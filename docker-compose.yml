@@ -6,6 +6,8 @@ services:
       - "5001:80/tcp"
     volumes:
       - .:/app
+      - ./config:/app/config:Z
+      - ./data/nginxproxy:/app/data/nginxproxy:Z
     links:
       - db
   db:

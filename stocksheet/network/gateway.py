@@ -22,7 +22,7 @@ class Gateway:
         self.__eventloop = asyncio.get_event_loop()
         self.__wsserver = self.__eventloop.run_until_complete(
             websockets.unix_serve(self.handler_receive, self.__socket))
-        os.chmod(self.__socket, 0o777)
+        os.chmod(self.__socket, 0o770)
         self.__eventloop.run_forever()
 
     def stop(self):
