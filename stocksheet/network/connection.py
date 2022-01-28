@@ -1,12 +1,10 @@
 import json
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import websockets
 
 from stocksheet.network.packets import PACKETS, PacketR
-from stocksheet.settings import Settings
-
 # noinspection PyUnresolvedReferences
 from stocksheet.network.packets import hello, internalerror, globaladmin, marketadmin
 

@@ -1,15 +1,13 @@
 import asyncio
-import json
 import os
 
 import websockets
 
 from stocksheet.network.auth import Auth
 from stocksheet.network.connection import ClientConnection
-from stocksheet.network.packets import PACKETS
-
 # noinspection PyUnresolvedReferences
 from stocksheet.network.packets import globaladmin, hello, internalerror, marketadmin
+
 
 class Gateway:
     def __init__(self, auth: Auth, socket):

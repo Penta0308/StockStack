@@ -4,13 +4,12 @@ Packet CmdLet
 :returns    r: str, stdout
 """
 import logging
-from io import StringIO
 from contextlib import redirect_stdout
+from io import StringIO
 from typing import TYPE_CHECKING
 
-from stocksheet.network.packets import PACKETS, PacketR, PacketT
 from stocksheet.network.auth import Privilege
-from stocksheet.settings import Settings
+from stocksheet.network.packets import PACKETS, PacketR, PacketT
 
 if TYPE_CHECKING:
     from stocksheet.network.connection import ClientConnection

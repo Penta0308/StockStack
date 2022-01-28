@@ -13,6 +13,7 @@ def proxy_create(x, p = None):
         p = f'/run/stockstack/{x}'
 
     with open(f'/app/data/nginxproxy/{x}.conf', 'w') as f:
+        # noinspection HttpUrlsUsage
         f.write(
 f"""location /{x} {{
     proxy_pass http://unix:{p};

@@ -7,9 +7,8 @@ Packet Hello
 import logging
 from typing import TYPE_CHECKING
 
-from stocksheet.network.packets import PACKETS, PacketR, PacketT
 from stocksheet.network.auth import Privilege
-from stocksheet.settings import Settings
+from stocksheet.network.packets import PACKETS, PacketR, PacketT
 
 if TYPE_CHECKING:
     from stocksheet.network.connection import ClientConnection

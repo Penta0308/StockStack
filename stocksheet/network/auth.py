@@ -1,6 +1,6 @@
 import secrets
 from enum import IntFlag
-from typing import TYPE_CHECKING, Type, Optional, Any
+from typing import TYPE_CHECKING, Type, Optional
 
 import psycopg
 
@@ -78,9 +78,8 @@ class Auth:
     def privilege_check(self, uid: Optional[int], privilege: Privilege):
         if uid is None:
             return privilege == Privilege.NONE
-        pmask = 0
         with self.__dbconn.cursor() as cur:
             cur.execute("""SELECT privilege FROM stsk_auth.apiusers WHERE uid = %s""", (uid,), prepare=True)
             s = cur.fetchone()
             pmask = Privilege(int(s[0], 2))
-        return (pmask & privilege) == privilege
+            return (pmask & privilege) == privilege

@@ -21,17 +21,23 @@ def start_sheet(x, p):
 if __name__ == '__main__':
     import sys
     if len(sys.argv) < 2:
-        print(nginx_util.proxys_read())
-        nginx_util.nginx_restart()
-        start_offlines()
-        signal.pause()  # WAIT
+        def main_boot():
+            print(nginx_util.proxys_read())
+            nginx_util.nginx_restart()
+            start_offlines()
+            signal.pause()  # WAIT
+        main_boot()
     elif sys.argv[1] == 'c':    # CREATE
-        n = sys.argv[2]
-        p = nginx_util.proxy_create(n)
-        nginx_util.nginx_reload()
-        start_sheet(n, p)
+        def main_create():
+            n = sys.argv[2]
+            p = nginx_util.proxy_create(n)
+            nginx_util.nginx_reload()
+            start_sheet(n, p)
+        main_create()
     elif sys.argv[1] == 'r':    # RELOAD
-        nginx_util.nginx_reload()
-        start_offlines()
+        def main_reload():
+            nginx_util.nginx_reload()
+            start_offlines()
+        main_reload()
     else:
         print(HELP_MESSAGE)

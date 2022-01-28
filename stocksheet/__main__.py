@@ -1,12 +1,8 @@
-import logging
-import argparse
 import sys
 
 from stocksheet.network.auth import Auth
 from stocksheet.network.gateway import Gateway
-from stocksheet.world.market import Market
 from stocksheet.settings import Settings
-import multiprocessing
 
 """def kotc_price_stepsize(price):
     if price < 1000:  # 1원 단위
