@@ -3,7 +3,8 @@ import re
 import subprocess
 from glob import glob
 
-
+def proxy_sockname(x):
+    proxys_read()
 
 def proxy_create(x, p = None):
     """
@@ -12,7 +13,7 @@ def proxy_create(x, p = None):
     :return: None
     """
     if p is None:
-        p = f'/run/stockstack/{x}.socket'
+        p = f'/run/stockstack/{x}'
 
     with open(f'/app/data/nginxproxy/{x}.conf', 'w') as f:
         f.write(
@@ -23,6 +24,7 @@ f"""location /{x} {{
     proxy_set_header Connection "Upgrade";
     proxy_set_header Origin "";
 }}""")
+    return p
 
 def proxy_remove(x):
     os.remove(f'/app/data/nginxproxy/{x}.conf')
@@ -55,5 +57,8 @@ if __name__ == '__main__':
     else:
         print(HELP_MESSAGE)
 
+def nginx_restart():
+    subprocess.call(['sudo', '/usr/sbin/service', 'nginx', 'restart'])
+
 def nginx_reload():
-    subprocess.call('/usr/sbin/nginx -s reload', shell=False)
+    subprocess.call(['sudo', '/usr/sbin/service', 'nginx', 'reload'])

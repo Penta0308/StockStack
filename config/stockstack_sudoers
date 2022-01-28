@@ -1,0 +1,1 @@
+stockstack ALL= NOPASSWD: /usr/sbin/service nginx restart, /usr/sbin/service nginx reload
