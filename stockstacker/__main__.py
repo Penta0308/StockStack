@@ -13,8 +13,7 @@ def find_online():
 def start_offlines():
     pr = nginx_util.proxys_read()
     for x in set([x['x'] for x in pr]) - set(find_online()):
-        a = list(filter(lambda r: r['x'] == x, pr))[0]
-        start_sheet(a['x'], a['p'])
+        start_sheet(**nginx_util.proxy_prop(x, pr=pr))
 
 def start_sheet(x, p):
     subprocess.Popen(['python', '-m', 'stocksheet', str(x), str(p)])

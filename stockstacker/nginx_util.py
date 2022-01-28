@@ -3,9 +3,6 @@ import re
 import subprocess
 from glob import glob
 
-def proxy_sockname(x):
-    proxys_read()
-
 def proxy_create(x, p = None):
     """
     :param x: router name
@@ -39,6 +36,11 @@ def proxys_read():  # I KNOW plural proxy is proxies
         with open(x) as f:
             p.append(rx.match(f.read()).groupdict())
     return p
+
+def proxy_prop(x, pr=None):
+    if pr is None:
+        pr = proxys_read()
+    return list(filter(lambda r: r['x'] == x, pr))[0]
 
 HELP_MESSAGE = """read list: r
 create: c name sock
