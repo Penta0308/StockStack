@@ -7,15 +7,9 @@ SPECIAL_WORDS = [
 
 class Settings:
     _settings = None
-    _globalr = None
+    templateenv = None
 
-    @staticmethod
-    def maincontext_put(globalr):
-        Settings._globalr = globalr
-
-    @staticmethod
-    def maincontext_get():
-        return Settings._globalr
+    maincontext = None
 
     @staticmethod
     def load():

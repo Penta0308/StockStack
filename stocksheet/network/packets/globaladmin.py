@@ -27,7 +27,7 @@ class CmdLetAct(PacketR):
         from stocksheet.settings import Settings
         f = StringIO()
         with redirect_stdout(f):
-            exec(e, Settings.maincontext_get())
+            exec(e, Settings.maincontext)
         s = f.getvalue()
         trans = CmdLetResp(self._connection, self._t, str(s))
         await trans.process()
