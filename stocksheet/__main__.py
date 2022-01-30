@@ -1,3 +1,4 @@
+import logging
 import sys
 import jinja2
 
@@ -31,11 +32,9 @@ kotc.open()
 
 kotc.close()"""
 
-if __name__ == '__main__':
-    name = sys.argv[1]
-    socket = sys.argv[2]
-    print(socket)
 
+def run(name, socket):
+    logging.debug(f'StockSheet {name} Starting for {socket}')
     Settings.load()
 
     Settings.templateenv = jinja2.Environment(loader=jinja2.PackageLoader("stocksheet"), autoescape=jinja2.select_autoescape())
@@ -44,6 +43,7 @@ if __name__ == '__main__':
 
     Settings.maincontext = globals()
 
-    gateway.start()  # blocking
+    gateway.run()  # blocking
 
-    gateway.stop()
+if __name__ == '__main__':
+    run(sys.argv[1], sys.argv[2])

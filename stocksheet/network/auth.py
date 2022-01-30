@@ -1,6 +1,7 @@
+import logging
 import secrets
 from enum import IntFlag
-from typing import TYPE_CHECKING, Type, Optional
+from typing import TYPE_CHECKING, Optional
 
 import psycopg
 
@@ -12,7 +13,7 @@ class Privilege(IntFlag):
     NONE = 0x0
     LOGINSTATE = 1 << 0
     GLOBALADMINISTRATION = 1 << 63
-    ALL = 0xFFFFFFFFFFFFFFFF    # 주어지지 말아야 하는 권한
+    ALL = 0xFFFFFFFFFFFFFFFF
 
     @classmethod
     def to_bitstring(cls):
@@ -28,58 +29,65 @@ class Privilege(IntFlag):
 
 class Auth:
     def __init__(self, dbinfo: dict):
-        self.__dbconn = psycopg.connect(**dbinfo, autocommit=True)
-        pass
+        self.__dbconn = None
+        self.__dbinfo = dbinfo
 
-    def __del__(self):
-        self.__dbconn.close()
+    async def start(self):
+        self.__dbconn = await psycopg.AsyncConnection.connect(**self.__dbinfo, autocommit=True)
+        async with self.__dbconn.cursor() as cur:
+            await cur.execute("""SELECT COUNT(uid) FROM apiusers WHERE privilege = |((%s)::BIT(64))""", (Privilege.ALL,))  # New schema
+            if (await cur.fetchone())[0] == 0:
+                root_uid = await self.user_add()
+                await self.user_grant(root_uid, Privilege.ALL)
+                root_akey = await self.apikey_generate(root_uid)
+                print(f'User ROOT {root_uid} Key {root_akey}')
+                logging.info('User ROOT Created')
 
-    def user_add(self, uid: Optional[int] = None):
-        with self.__dbconn.cursor() as cur:
+    async def stop(self):
+        if self.__dbconn:
+            await self.__dbconn.close()
+
+    async def user_add(self, uid: Optional[int] = None):
+        async with self.__dbconn.cursor() as cur:
             if uid is None:
-                cur.execute("""INSERT INTO apiusers DEFAULT VALUES RETURNING uid""")
+                await cur.execute("""INSERT INTO apiusers DEFAULT VALUES RETURNING uid""")
             else:
-                cur.execute("""INSERT INTO apiusers (uid) VALUES (%s) RETURNING uid""", (uid,))
-            return cur.fetchone()[0]
+                await cur.execute("""INSERT INTO apiusers (uid) VALUES (%s) RETURNING uid""", (uid,))
+            return (await cur.fetchone())[0]
 
-    def user_grant(self, uid: int, privilege: Type[Privilege]):
-        with self.__dbconn.cursor() as cur:
-            cur.execute("""UPDATE apiusers SET privilege = privilege
+    async def user_grant(self, uid: int, privilege: Privilege):
+        async with self.__dbconn.cursor() as cur:
+            await cur.execute("""UPDATE apiusers SET privilege = privilege
                         |((%s)::BIT(64)) WHERE uid = %s RETURNING uid""", (privilege.to_bitstring(), uid))
-            return cur.fetchone()[0]
+            return (await cur.fetchone())[0]
 
-    def user_get_market(self, uid: int) -> str:
-        with self.__dbconn.cursor() as cur:
-            cur.execute("""SELECT market FROM apiusers WHERE uid = %s""", (uid, ))
-            return cur.fetchone()[0]
-
-    def user_revoke(self, uid: int, privilege: Type[Privilege]):
-        with self.__dbconn.cursor() as cur:
-            cur.execute("""UPDATE apiusers SET privilege = privilege
+    async def user_revoke(self, uid: int, privilege: Privilege):
+        async with self.__dbconn.cursor() as cur:
+            await cur.execute("""UPDATE apiusers SET privilege = privilege
                         &(~((%s)::BIT(64))) WHERE uid = %s RETURNING uid""", (privilege.to_bitstring(), uid))
-            return cur.fetchone()[0]
+            return (await cur.fetchone())[0]
 
-    def apikey_generate(self, uid: int):
+    async def apikey_generate(self, uid: int):
         apikey = secrets.token_urlsafe(64)
-        with self.__dbconn.cursor() as cur:
-            cur.execute("""INSERT INTO apikeys (uid, apikey) VALUES (%s, %s) RETURNING apikey""",
+        async with self.__dbconn.cursor() as cur:
+            await cur.execute("""INSERT INTO apikeys (uid, apikey) VALUES (%s, %s) RETURNING apikey""",
                         (uid, apikey))
-            return cur.fetchone()[0]
+            return (await cur.fetchone())[0]
 
-    def apikey_check(self, apikey) -> int | None:
-        with self.__dbconn.cursor() as cur:
-            cur.execute("""SELECT uid FROM apikeys WHERE apikey = %s""", (apikey,), prepare=True)
-            s = cur.fetchone()
+    async def apikey_check(self, apikey) -> int | None:
+        async with self.__dbconn.cursor() as cur:
+            await cur.execute("""SELECT uid FROM apikeys WHERE apikey = %s""", (apikey,), prepare=True)
+            s = await cur.fetchone()
             if s is None:
                 return None
             else:
                 return s[0]
 
-    def privilege_check(self, uid: Optional[int], privilege: Privilege):
+    async def privilege_check(self, uid: Optional[int], privilege: Privilege):
         if uid is None:
             return privilege == Privilege.NONE
-        with self.__dbconn.cursor() as cur:
-            cur.execute("""SELECT privilege FROM stsk_auth.apiusers WHERE uid = %s""", (uid,), prepare=True)
-            s = cur.fetchone()
+        async with self.__dbconn.cursor() as cur:
+            await cur.execute("""SELECT privilege FROM stsk_auth.apiusers WHERE uid = %s""", (uid,), prepare=True)
+            s = await cur.fetchone()
             pmask = Privilege(int(s[0], 2))
             return (pmask & privilege) == privilege
