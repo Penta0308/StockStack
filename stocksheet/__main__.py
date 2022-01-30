@@ -1,4 +1,5 @@
 import sys
+import jinja2
 
 from stocksheet.network.auth import Auth
 from stocksheet.network.gateway import Gateway
@@ -36,13 +37,12 @@ if __name__ == '__main__':
     print(socket)
 
     Settings.load()
-    dbinfo = {**(Settings.get()['database'])}
 
-    auth = Auth(dbinfo)
+    Settings.templateenv = jinja2.Environment(loader=jinja2.PackageLoader("stocksheet"), autoescape=jinja2.select_autoescape())
 
-    gateway = Gateway(auth, socket)
+    gateway = Gateway(name, Settings.get()['database'], socket)
 
-    Settings.maincontext_put(globals())
+    Settings.maincontext = globals()
 
     gateway.start()  # blocking
 

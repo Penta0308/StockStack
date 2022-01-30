@@ -37,38 +37,38 @@ class Auth:
     def user_add(self, uid: Optional[int] = None):
         with self.__dbconn.cursor() as cur:
             if uid is None:
-                cur.execute("""INSERT INTO stsk_auth.apiusers DEFAULT VALUES RETURNING uid""")
+                cur.execute("""INSERT INTO apiusers DEFAULT VALUES RETURNING uid""")
             else:
-                cur.execute("""INSERT INTO stsk_auth.apiusers (uid) VALUES (%s) RETURNING uid""", (uid,))
+                cur.execute("""INSERT INTO apiusers (uid) VALUES (%s) RETURNING uid""", (uid,))
             return cur.fetchone()[0]
 
     def user_grant(self, uid: int, privilege: Type[Privilege]):
         with self.__dbconn.cursor() as cur:
-            cur.execute("""UPDATE stsk_auth.apiusers SET privilege = privilege
+            cur.execute("""UPDATE apiusers SET privilege = privilege
                         |((%s)::BIT(64)) WHERE uid = %s RETURNING uid""", (privilege.to_bitstring(), uid))
             return cur.fetchone()[0]
 
     def user_get_market(self, uid: int) -> str:
         with self.__dbconn.cursor() as cur:
-            cur.execute("""SELECT market FROM stsk_auth.apiusers WHERE uid = %s""", (uid, ))
+            cur.execute("""SELECT market FROM apiusers WHERE uid = %s""", (uid, ))
             return cur.fetchone()[0]
 
     def user_revoke(self, uid: int, privilege: Type[Privilege]):
         with self.__dbconn.cursor() as cur:
-            cur.execute("""UPDATE stsk_auth.apiusers SET privilege = privilege
+            cur.execute("""UPDATE apiusers SET privilege = privilege
                         &(~((%s)::BIT(64))) WHERE uid = %s RETURNING uid""", (privilege.to_bitstring(), uid))
             return cur.fetchone()[0]
 
     def apikey_generate(self, uid: int):
         apikey = secrets.token_urlsafe(64)
         with self.__dbconn.cursor() as cur:
-            cur.execute("""INSERT INTO stsk_auth.apikeys (uid, apikey) VALUES (%s, %s) RETURNING apikey""",
+            cur.execute("""INSERT INTO apikeys (uid, apikey) VALUES (%s, %s) RETURNING apikey""",
                         (uid, apikey))
             return cur.fetchone()[0]
 
     def apikey_check(self, apikey) -> int | None:
         with self.__dbconn.cursor() as cur:
-            cur.execute("""SELECT uid FROM stsk_auth.apikeys WHERE apikey = %s""", (apikey,), prepare=True)
+            cur.execute("""SELECT uid FROM apikeys WHERE apikey = %s""", (apikey,), prepare=True)
             s = cur.fetchone()
             if s is None:
                 return None
