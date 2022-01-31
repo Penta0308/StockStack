@@ -12,8 +12,10 @@ if TYPE_CHECKING:
 class Privilege(IntFlag):
     NONE = 0x0
     LOGINSTATE = 1 << 0
-    GLOBALADMINISTRATION = 1 << 63
+    MARKETADMINISTRATION = 1 << 62
+    SYSTEMADMINISTRATION = 1 << 63
     ALL = 0xFFFFFFFFFFFFFFFF
+    SAFEALL = ALL & ~SYSTEMADMINISTRATION
 
     @property
     def bitstring(self):
@@ -36,13 +38,12 @@ class Auth:
         self.__dbconn = await psycopg.AsyncConnection.connect(**self.__dbinfo, autocommit=True)
         async with self.__dbconn.cursor() as cur:
             await cur.execute("""SELECT COUNT(uid) FROM apiusers WHERE privilege = ((%s)::BIT(64))""",
-                              (Privilege.ALL.bitstring,))  # New schema
+                              (Privilege.SAFEALL.bitstring,))  # New schema
             if (await cur.fetchone())[0] == 0:
                 root_uid = await self.user_add()
-                await self.user_grant(root_uid, Privilege.ALL)
+                await self.user_grant(root_uid, Privilege.SAFEALL)
                 root_akey = await self.apikey_generate(root_uid)
-                print(f'User ROOT {root_uid} Key {root_akey}')
-                Settings.logger.info('User ROOT Created')
+                Settings.logger.warning('User SA Created')
 
     async def stop(self):
         if self.__dbconn:

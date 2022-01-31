@@ -1,26 +1,29 @@
-"""
-Packet CmdLet
-:parameter  e: str, command to exec
-:returns    r: str, stdout
-"""
+from typing import TYPE_CHECKING
 
-"""
-@PACKETS.register(10)
-@Privilege.require(Privilege.GLOBALADMINISTRATION)  # TODO: Creative Action
-class MarketCreateAct(PacketR):
+from stocksheet.settings import Settings
+from stocksheet.network.auth import Privilege
+from stocksheet.network.packets import PACKETS, PacketR, PacketT
+
+if TYPE_CHECKING:
+    from stocksheet.network.connection import ClientConnection
+
+
+@PACKETS.register(6)
+@Privilege.require(Privilege.MARKETADMINISTRATION)
+class MarketStartAct(PacketR):
     def __init__(self, connection: 'ClientConnection', t, d):
         super().__init__(connection, t, d)
 
     async def process(self):
-        self._connection.logger.info(f"MarketCreate UID: {self._connection.uid} Name: {a}")
+        Settings.logger.debug(f"MarketStart UID: {self._connection.uid}")
+        # TODO: MARKET START
 
-        s = {'a': a}
+        s = {}
 
-        trans = MarketCreateResp(self._connection, self._t, s)
+        trans = MarketStartResp(self._connection, self._t, s)
         await trans.process()
 
 
-@PACKETS.register(11)
-class MarketCreateResp(PacketT):
+@PACKETS.register(7)
+class MarketStartResp(PacketT):
     pass
-"""
