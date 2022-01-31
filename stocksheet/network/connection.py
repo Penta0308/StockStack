@@ -5,8 +5,7 @@ from typing import TYPE_CHECKING
 import websockets
 
 from stocksheet.network.packets import PACKETS, PacketR
-# noinspection PyUnresolvedReferences
-from stocksheet.network.packets import hello, internalerror, globaladmin, marketadmin
+from stocksheet.network.packets import internalerror
 
 if TYPE_CHECKING:
     from stocksheet.network.gateway import Gateway

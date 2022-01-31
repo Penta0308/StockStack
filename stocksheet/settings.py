@@ -2,7 +2,6 @@ import json
 
 class Settings:
     _settings = None
-    templateenv = None
 
     maincontext = None
 
