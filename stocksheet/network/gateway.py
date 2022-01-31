@@ -1,6 +1,6 @@
 import asyncio
-import logging
 import os
+import signal
 
 import psycopg
 import websockets
@@ -23,11 +23,11 @@ class Gateway:
         self.dbinfo = dbinfo
 
     def run(self):
-        logging.debug(f'Gateway {self.name} Starting')
+        Settings.logger.debug(f'Gateway {self.name} Starting')
         asyncio.run(self._run())
 
     async def _run(self):
-        async with psycopg.AsyncConnection.connect(**self.dbinfo, autocommit=False) as dbconn:
+        async with await psycopg.AsyncConnection.connect(**self.dbinfo, autocommit=False) as dbconn:
             async with dbconn.cursor() as cur:
                 template = Settings.templateenv.get_template("schema_init.sql")
                 await cur.execute(template.render(schemaname=self.schema))
@@ -37,13 +37,16 @@ class Gateway:
         self.auth = Auth(self.dbinfo)
         await self.auth.start()
 
-        self.__wsserver = websockets.unix_serve(self.handler_receive, self.__socket)
-        logging.debug(f'Gateway {self.name} Listening')
-        os.chmod(self.__socket, 0o660)
-        await self.__wsserver()
+        async with websockets.unix_serve(self.handler_receive, self.__socket):
+            Settings.logger.info(f'Gateway {self.name} Listening at {self.__socket}')
+            os.chmod(self.__socket, 0o660)
+            await asyncio.Future()
+
+        self.__wsserver.close()
+        await self.__wsserver.wait_closed()
 
         await self.auth.stop()
-        logging.debug(f'Gateway {self.name} Stopped')
+        Settings.logger.info(f'Gateway {self.name} Stopped')
 
     async def handler_receive(self, websocket: websockets.WebSocketServerProtocol):
         await ClientConnection(self, websocket).run()

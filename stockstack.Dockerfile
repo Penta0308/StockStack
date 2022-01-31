@@ -28,4 +28,4 @@ COPY . /app
 RUN rm --force /etc/nginx/sites-enabled/default || true \
     && cp ./config/nginx_server.conf /etc/nginx/sites-enabled/nginx_server.conf
 
-CMD python -m stockstacker --log=debug
+CMD python -m stockstacker l

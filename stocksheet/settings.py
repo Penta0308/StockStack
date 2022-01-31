@@ -1,15 +1,12 @@
 import json
 
-SPECIAL_WORDS = [
-    "stsk_"
-]
-
-
 class Settings:
     _settings = None
     templateenv = None
 
     maincontext = None
+
+    logger = None
 
     @staticmethod
     def load():

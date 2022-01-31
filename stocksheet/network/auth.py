@@ -1,13 +1,13 @@
-import logging
 import secrets
 from enum import IntFlag
 from typing import TYPE_CHECKING, Optional
 
 import psycopg
 
+from stocksheet.settings import Settings
+
 if TYPE_CHECKING:
     from stocksheet.network.packets import PacketR
-
 
 class Privilege(IntFlag):
     NONE = 0x0
@@ -15,9 +15,9 @@ class Privilege(IntFlag):
     GLOBALADMINISTRATION = 1 << 63
     ALL = 0xFFFFFFFFFFFFFFFF
 
-    @classmethod
-    def to_bitstring(cls):
-        return format(int(cls), '064b')
+    @property
+    def bitstring(self):
+        return format(int(self.value), '064b')
 
     @staticmethod
     def require(privilege: 'Privilege'):
@@ -35,13 +35,14 @@ class Auth:
     async def start(self):
         self.__dbconn = await psycopg.AsyncConnection.connect(**self.__dbinfo, autocommit=True)
         async with self.__dbconn.cursor() as cur:
-            await cur.execute("""SELECT COUNT(uid) FROM apiusers WHERE privilege = |((%s)::BIT(64))""", (Privilege.ALL,))  # New schema
+            await cur.execute("""SELECT COUNT(uid) FROM apiusers WHERE privilege = ((%s)::BIT(64))""",
+                              (Privilege.ALL.bitstring,))  # New schema
             if (await cur.fetchone())[0] == 0:
                 root_uid = await self.user_add()
                 await self.user_grant(root_uid, Privilege.ALL)
                 root_akey = await self.apikey_generate(root_uid)
                 print(f'User ROOT {root_uid} Key {root_akey}')
-                logging.info('User ROOT Created')
+                Settings.logger.info('User ROOT Created')
 
     async def stop(self):
         if self.__dbconn:
@@ -58,13 +59,13 @@ class Auth:
     async def user_grant(self, uid: int, privilege: Privilege):
         async with self.__dbconn.cursor() as cur:
             await cur.execute("""UPDATE apiusers SET privilege = privilege
-                        |((%s)::BIT(64)) WHERE uid = %s RETURNING uid""", (privilege.to_bitstring(), uid))
+                        |((%s)::BIT(64)) WHERE uid = %s RETURNING uid""", (privilege.bitstring, uid))
             return (await cur.fetchone())[0]
 
     async def user_revoke(self, uid: int, privilege: Privilege):
         async with self.__dbconn.cursor() as cur:
             await cur.execute("""UPDATE apiusers SET privilege = privilege
-                        &(~((%s)::BIT(64))) WHERE uid = %s RETURNING uid""", (privilege.to_bitstring(), uid))
+                        &(~((%s)::BIT(64))) WHERE uid = %s RETURNING uid""", (privilege.bitstring, uid))
             return (await cur.fetchone())[0]
 
     async def apikey_generate(self, uid: int):

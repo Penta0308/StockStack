@@ -1,4 +1,6 @@
 import logging
+import multiprocessing
+import signal
 import sys
 import jinja2
 
@@ -33,8 +35,8 @@ kotc.open()
 kotc.close()"""
 
 def run(name, socket):
-    logging.basicConfig(level=logging.DEBUG)
-    logging.debug(f'StockSheet {name} Starting for {socket}')
+    if Settings.logger is None:
+        Settings.logger = multiprocessing.get_logger()
     Settings.load()
 
     Settings.templateenv = jinja2.Environment(loader=jinja2.PackageLoader("stocksheet"), autoescape=jinja2.select_autoescape())
@@ -43,8 +45,9 @@ def run(name, socket):
 
     Settings.maincontext = globals()
 
-    gateway.run()  # blocking
+    gateway.run()   # blocking
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
+    Settings.logger = logging.getLogger()
+    Settings.logger.setLevel(logging.DEBUG)
     run(sys.argv[1], sys.argv[2])
