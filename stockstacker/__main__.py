@@ -21,16 +21,17 @@ def start_offlines():
 
 def start_sheet(x, p):
     logging.debug(f'Stockstack {x} Firing')
-    from ..stocksheet import __main__
+    sys.path.append(".")
+    from stocksheet import __main__
     sheet = multiprocessing.Process(target=stocksheet.__main__.run, args=(x, str(p)))
     sheet.start()
 
 if __name__ == '__main__':
     multiprocessing.set_start_method('spawn')
+    logging.basicConfig(level=logging.DEBUG)
     import sys
     if len(sys.argv) < 2:
         def main_boot():
-            print(nginx_util.proxys_read())
             nginx_util.nginx_restart()
             start_offlines()
             signal.pause()  # WAIT

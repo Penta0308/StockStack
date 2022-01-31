@@ -32,8 +32,8 @@ kotc.open()
 
 kotc.close()"""
 
-
 def run(name, socket):
+    logging.basicConfig(level=logging.DEBUG)
     logging.debug(f'StockSheet {name} Starting for {socket}')
     Settings.load()
 
@@ -46,4 +46,5 @@ def run(name, socket):
     gateway.run()  # blocking
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
     run(sys.argv[1], sys.argv[2])
