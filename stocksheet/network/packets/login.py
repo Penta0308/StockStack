@@ -16,21 +16,21 @@ if TYPE_CHECKING:
 
 @PACKETS.register(1)
 @Privilege.require(Privilege.NONE)
-class HelloAct(PacketR):
+class LoginAct(PacketR):
     def __init__(self, connection: 'ClientConnection', t, d):
         super().__init__(connection, t, d)
 
     async def process(self):
         apikey = self._d['akey']
-        uid = self._connection.gateway.auth.apikey_check(apikey)
+        uid = await self._connection.gateway.auth.apikey_check(apikey)
         Settings.logger.info(f"Authentication UID: {str(uid)} Key: {apikey}")
         self._connection.uid = uid
-        trans = HelloResp(self._connection, self._t,
+        trans = LoginResp(self._connection, self._t,
                           {'uid': self._connection.uid})
         await trans.process()
 
 
 @PACKETS.register(2)
-class HelloResp(PacketT):
+class LoginResp(PacketT):
     def __init__(self, connection: 'ClientConnection', t, d):
         super().__init__(connection, t, d)

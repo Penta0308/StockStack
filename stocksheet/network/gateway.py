@@ -8,8 +8,9 @@ import websockets
 from stocksheet.network.auth import Auth
 from stocksheet.network.connection import ClientConnection
 # noinspection PyUnresolvedReferences
-from stocksheet.network.packets import hello, internalerror, systemadmin, marketadmin
+from stocksheet.network.packets import login, internalerror, systemadmin, marketadmin
 from stocksheet.settings import Settings
+from stocksheet.world.market import Market
 
 
 class Gateway:
@@ -21,6 +22,7 @@ class Gateway:
         self.name = name
         self.schema = f"m{self.name}"
         self.dbinfo = dbinfo
+        self.market = None
 
     def run(self):
         Settings.logger.debug(f'Gateway {self.name} Starting')
@@ -36,12 +38,19 @@ class Gateway:
                     CREATE TABLE IF NOT EXISTS apikeys (uid INT REFERENCES apiusers (uid), apikey CHAR(86) PRIMARY KEY, ratelimit INT DEFAULT -1 NOT NULL);
                     CREATE TABLE IF NOT EXISTS stocks (ticker TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL, totalamount INT DEFAULT 0 NOT NULL, parvalue INT DEFAULT 5000, closingprice INT DEFAULT 5000);
                     CREATE TABLE IF NOT EXISTS traders (tid SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL);
-                    CREATE TABLE IF NOT EXISTS stockowns (tid INT REFERENCES traders (tid), ticker TEXT REFERENCES stocks (ticker), amount INT DEFAULT 0 NOT NULL)""")
+                    CREATE TABLE IF NOT EXISTS stockowns (tid INT REFERENCES traders (tid), ticker TEXT REFERENCES stocks (ticker), amount INT DEFAULT 0 NOT NULL);
+                    CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT);
+                    INSERT INTO config (key, value) VALUES 
+                    ('market_variancerate_float', '0.3'),
+                    ('market_pricestepsize_fe', $$1 /1000 5 /5000 10 /10000 50 /50000 100 /100000 500 /500000 1000$$)
+                    ON CONFLICT (key) DO NOTHING;""")
 
         self.dbinfo['options'] = f"-c search_path={self.schema}"
 
         self.auth = Auth(self.dbinfo)
         await self.auth.start()
+
+        self.market = Market(self.dbinfo)
 
         async with websockets.unix_serve(self.handler_receive, self.__socket):
             Settings.logger.info(f'Gateway {self.name} Listening at {self.__socket}')

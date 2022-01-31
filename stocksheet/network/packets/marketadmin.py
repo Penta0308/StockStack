@@ -10,20 +10,53 @@ if TYPE_CHECKING:
 
 @PACKETS.register(6)
 @Privilege.require(Privilege.MARKETADMINISTRATION)
-class MarketStartAct(PacketR):
+class MarketStateAct(PacketR):
     def __init__(self, connection: 'ClientConnection', t, d):
         super().__init__(connection, t, d)
 
     async def process(self):
-        Settings.logger.debug(f"MarketStart UID: {self._connection.uid}")
-        # TODO: MARKET START
 
-        s = {}
+        ts = self._d['s']
 
-        trans = MarketStartResp(self._connection, self._t, s)
-        await trans.process()
+        if ts == "open":
+            # TODO: MARKET OPEN
+
+            d = {"s": "open"}
+
+            await MarketStateResp(self._connection, self._t, d).process()
+        elif ts == "close":
+            # TODO: MARKET OPEN
+
+            d = {"s": "close"}
+
+            await MarketStateResp(self._connection, self._t, d).process()
+        else:
+            raise AttributeError
 
 
 @PACKETS.register(7)
-class MarketStartResp(PacketT):
+class MarketStateResp(PacketT):
+    pass
+
+
+@PACKETS.register(8)
+@Privilege.require(Privilege.MARKETADMINISTRATION)
+class MarketConfAct(PacketR):
+    def __init__(self, connection: 'ClientConnection', t, d):
+        super().__init__(connection, t, d)
+
+    async def process(self):
+
+        k = self._d['k']
+        v = self._d['v']
+
+        # TODO: CONFIG UPDATER
+
+        d = {"k": k, "v": v}
+
+        await MarketConfResp(self._connection, self._t, d).process()
+
+
+@PACKETS.register(9)
+class MarketConfResp(PacketT):
     pass

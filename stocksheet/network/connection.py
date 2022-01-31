@@ -28,7 +28,7 @@ class ClientConnection:
                 jo = json.loads(message)
                 pclass = PACKETS.packet_lookup(int(jo['op']))
                 if issubclass(pclass, PacketR):
-                    if self.gateway.auth.privilege_check(self.uid, pclass.REQUIRE_PRIVILEGE):
+                    if await self.gateway.auth.privilege_check(self.uid, pclass.REQUIRE_PRIVILEGE):
                         recvpacket = pclass(self, jo.get('t'), jo['d'])
                         await recvpacket.process()
                     else:

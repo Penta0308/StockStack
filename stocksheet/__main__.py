@@ -20,9 +20,12 @@ from stocksheet.settings import Settings
         step = 500
     else:  # 1000원 단위
         step = 1000
-    return step
+    return step"""
 
+p = lambda price: 1 if price < 1000 else 5 if price < 5000 else 10 if price < 10000 else 50 if price < 50000 else 100 if price < 100000 else 500 if price < 500000 else 1000
+print(p(1000))
 
+"""
 kotc_variancerate = 0.3
 
 kotc = Market(kotc_price_stepsize, kotc_variancerate)
@@ -35,6 +38,8 @@ def run(name, socket):
     if Settings.logger is None:
         Settings.logger = multiprocessing.get_logger()
     Settings.load()
+
+    Settings.logger.name = name
 
     gateway = Gateway(name, Settings.get()['database'], socket)
 

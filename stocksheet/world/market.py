@@ -2,6 +2,8 @@ import typing
 from typing import Dict, Union
 import math
 
+import psycopg
+
 from stocksheet.world.order import OrderDirection, OrderBuy, OrderSell
 from stocksheet.world.stock import Stock
 from stocksheet.entity.trader import Trader
@@ -19,22 +21,42 @@ class StockPriceLimitError(Exception):
     pass
 
 class Market:
+    class PriceStepsizeFEval:
+        def __init__(self):
+            self._pricerange = list()
+            self._steps = list()
+
+        def compile(self, s: str):
+            for p in s.split(' '):
+                if p[0] == '/':
+                    self._pricerange.append(int(p[1:]))
+                else:
+                    self._steps.append(int(p))
+            pass
+
+        def __call__(self, p, *args, **kwargs):
+            for n, r in enumerate(p):
+                if p < r:
+                    return self._steps[n]
+            return self._steps[-1]
+
     def price_round(self, price, roundfunc=math.floor):
-        step = self._price_stepsize(price)
+        step = self._price_stepsize_f(price)
         return (roundfunc(price / step)) * step
 
     def price_variance(self, refprice: int):
         return (self.price_round(refprice + self.price_round(refprice * self._variancerate)),
                 self.price_round(refprice - self.price_round(refprice * self._variancerate)))
 
-    def __init__(self, _price_stepsize, _variancerate):
+    def __init__(self, dbinfo):
         self.__traders: Dict[typing.Hashable, Trader] = dict()
         self.__stocks: Dict[typing.Hashable, Stock] = dict()
         self._is_open = False
         self._timestamp = 0
+        self.dbinfo = dbinfo
 
-        self._price_stepsize = _price_stepsize
-        self._variancerate = _variancerate
+        self._price_stepsize_f = Market.PriceStepsizeFEval()  # Initial... won't work
+        self._variancerate = 0.001   # too
 
     def open(self):
         """
@@ -43,6 +65,15 @@ class Market:
         """
         if self._is_open:
             return
+
+
+        async with await psycopg.AsyncConnection.connect(**self.dbinfo, autocommit=True) as dbconn:
+            async with dbconn.cursor() as cur:
+                await cur.execute("""SELECT value from config WHERE key = %s""", ('market_variancerate_float',), prepare=True)
+                self._variancerate = float((await cur.fetchone())[0])
+                await cur.execute("""SELECT value from config WHERE key = %s""", ('market_pricestepsize_fe',))
+                self._price_stepsize_f.compile((await cur.fetchone())[0])
+
         for stock in self.__stocks.values():
             stock.open()
         self._is_open = True
@@ -54,6 +85,9 @@ class Market:
         """
         if not self._is_open:
             return
+
+
+
         self._is_open = False
         for stock in self.__stocks.values():
             stock.close()
