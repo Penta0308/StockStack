@@ -61,7 +61,7 @@ if __name__ == '__main__':
         print(HELP_MESSAGE)
 
 def nginx_restart():
-    subprocess.call(['sudo', '/usr/sbin/service', 'nginx', 'restart'])
+    subprocess.call(['/usr/bin/sudo', '/usr/sbin/service', 'nginx', 'restart'])
 
 def nginx_reload():
-    subprocess.call(['sudo', '/usr/sbin/service', 'nginx', 'reload'])
+    subprocess.call(['/usr/bin/sudo', '/usr/sbin/service', 'nginx', 'reload'])
