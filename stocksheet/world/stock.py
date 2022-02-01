@@ -7,9 +7,10 @@ if TYPE_CHECKING:
 
 
 class Stock:
-    def __init__(self, market: 'Market'):
+    def __init__(self, market: 'Market', ticker: str):
         self.market = market
-        self.name = '(Unnamed Stock)'
+        self.ticker = ticker
+        self.name = 'Unnamed'
         self.sellorders: List[Order] = list()
         self.buyorders: List[Order] = list()
         self.refprice = 0  # 기준가격. 전일종가 또는 기세가
@@ -19,10 +20,37 @@ class Stock:
         self.sellpriorityfunc = lambda x: ((-self.lowlimit if x is None else -x.price), x.timestamp, x.count)
         self.buypriorityfunc = lambda x: ((self.upplimit if x is None else x.price), x.timestamp, x.count)
 
-    def open(self):
+    @staticmethod
+    async def create(market: 'Market', ticker: str, name: str, parvalue = 5000):
+        async with market.cursor() as cur:
+            await cur.execute(
+                """INSERT INTO stocks (ticker, name, parvalue, closingprice) VALUES (%s, %s, %s, %s) RETURNING ticker""",
+                (ticker, name, parvalue, parvalue))
+            return (await cur.fetchone())[0]
+
+    async def load(self):
+        async with self.market.cursor() as cur:
+            await cur.execute(
+                """SELECT (name, parvalue, closingprice) FROM stocks WHERE ticker = %s""", (self.ticker,))
+            r = await cur.fetchone()
+            self.name = r[0]
+            self.refprice = r[2]
+
+    async def dump(self):
+        async with self.market.cursor() as cur:
+            await cur.execute(
+                """UPDATE stocks SET (name, closingprice) = (%s, %s)WHERE ticker = %s""", (self.ticker, self.name, self.refprice))
+            r = await cur.fetchone()
+            self.name = r[0]
+            self.refprice = r[2]
+
+
+    async def event_open(self):
+        await self.load()
+
         self.upplimit, self.lowlimit = self.market.price_variance(self.refprice)
 
-    def close(self):
+    async def event_close(self):
         self.refprice = self.curprice
         if len(self.sellorders) > 0:
             sp = self.sellorders[0].price
@@ -36,6 +64,8 @@ class Stock:
             self.sellorders.pop().close()
         while len(self.buyorders) > 0:
             self.buyorders.pop().close()
+
+        await self.dump()
 
     def update_curprice(self, ordprice):
         self.curprice = ordprice

@@ -1,9 +1,10 @@
-import typing
-from typing import Dict, Union
+from functools import wraps
+from typing import Dict, Union, List, Tuple, Callable, Optional
 import math
 
 import psycopg
 
+from stocksheet.settings import Settings
 from stocksheet.world.order import OrderDirection, OrderBuy, OrderSell
 from stocksheet.world.stock import Stock
 from stocksheet.entity.trader import Trader
@@ -21,78 +22,129 @@ class StockPriceLimitError(Exception):
     pass
 
 class Market:
+
     class PriceStepsizeFEval:
+        _pricerange: Union[List[int], List[float]]
+        _steps: Union[List[int], List[float]]
+
         def __init__(self):
-            self._pricerange = list()
+            self._pricerange= list()
             self._steps = list()
 
-        def compile(self, s: str):
+        def compile(self, s: str) -> None:
             for p in s.split(' '):
                 if p[0] == '/':
                     self._pricerange.append(int(p[1:]))
                 else:
                     self._steps.append(int(p))
-            pass
 
-        def __call__(self, p, *args, **kwargs):
-            for n, r in enumerate(p):
+        def __call__(self, p: Union[int, float]) -> Union[int, float]:
+            for n, r in enumerate(self._pricerange):
                 if p < r:
                     return self._steps[n]
-            return self._steps[-1]
+            try:
+                return self._steps[-1]
+            except:
+                raise NotImplementedError
 
-    def price_round(self, price, roundfunc=math.floor):
+    def price_round(self, price: Union[int, float], roundfunc: Callable[[Union[int, float]], int]=math.floor) -> Union[int, float]:
         step = self._price_stepsize_f(price)
         return (roundfunc(price / step)) * step
 
-    def price_variance(self, refprice: int):
+    def price_variance(self, refprice: int) -> Tuple[Union[int, float], Union[int, float]]:
         return (self.price_round(refprice + self.price_round(refprice * self._variancerate)),
                 self.price_round(refprice - self.price_round(refprice * self._variancerate)))
 
+    @staticmethod
+    def closedonly(f):
+        @wraps(f)
+        async def wrapper(self: 'Market', *args, **kwargs):
+            if self._is_open:
+                raise MarketOpenedError
+            else:
+                return await f(self, *args, **kwargs)
+        return wrapper
+
+    @staticmethod
+    def openedonly(f):
+        @wraps(f)
+        async def wrapper(self: 'Market', *args, **kwargs):
+            if not self._is_open:
+                raise MarketOpenedError
+            else:
+                return await f(self, *args, **kwargs)
+        return wrapper
+
+    @staticmethod
+    def connectdb(f):
+        @wraps(f)
+        async def wrapper(self: 'Market', *args, **kwargs):
+            if self.__dbconn is None:
+                self.__dbconn = await psycopg.AsyncConnection.connect(**self.dbinfo, autocommit=True)
+            return await f(self, *args, **kwargs)
+
+        return wrapper
+
+    @connectdb
+    async def cursor(self):
+        return self.__dbconn.cursor()
+
     def __init__(self, dbinfo):
-        self.__traders: Dict[typing.Hashable, Trader] = dict()
-        self.__stocks: Dict[typing.Hashable, Stock] = dict()
-        self._is_open = False
+        self.__traders: Dict[int, Trader] = dict()
+        self.__stocks: Dict[str, Stock] = dict()
+        self._is_open: bool = False
         self._timestamp = 0
         self.dbinfo = dbinfo
+        self.__dbconn: Optional[psycopg.AsyncConnection] = None
 
         self._price_stepsize_f = Market.PriceStepsizeFEval()  # Initial... won't work
         self._variancerate = 0.001   # too
 
-    def open(self):
+    @connectdb
+    async def config_read(self, key):
+        async with self.__dbconn.cursor() as cur:
+            await cur.execute("""SELECT value from config WHERE key = %s""", (key,), prepare=True)
+            return (await cur.fetchone())[0]
+
+    @connectdb
+    async def config_write(self, key, value, update=True):
+        async with self.__dbconn.cursor() as cur:
+            if update:
+                await cur.execute("""INSERT INTO config (key, value) VALUES (%s, %s) ON CONFLICT DO UPDATE SET (key, value) = (excluded.key, excluded.value)""", (key, value), prepare=True)
+            else:
+                await cur.execute("""INSERT INTO config (key, value) VALUES (%s, %s)""", (key, value), prepare=True)
+
+    @closedonly
+    async def open(self):
         """
         Start a day.
         :return:
         """
-        if self._is_open:
-            return
 
+        Settings.logger.info('Market opening')
 
-        async with await psycopg.AsyncConnection.connect(**self.dbinfo, autocommit=True) as dbconn:
-            async with dbconn.cursor() as cur:
-                await cur.execute("""SELECT value from config WHERE key = %s""", ('market_variancerate_float',), prepare=True)
-                self._variancerate = float((await cur.fetchone())[0])
-                await cur.execute("""SELECT value from config WHERE key = %s""", ('market_pricestepsize_fe',))
-                self._price_stepsize_f.compile((await cur.fetchone())[0])
+        self._variancerate = float(await self.config_read('market_variancerate_float'))
+        self._price_stepsize_f.compile(await self.config_read('market_pricestepsize_fe'))
 
         for stock in self.__stocks.values():
-            stock.open()
+            await stock.event_open()
         self._is_open = True
 
-    def close(self):
+    @openedonly
+    async def close(self):
         """
         End a day.
         :return:
         """
-        if not self._is_open:
-            return
 
-
+        Settings.logger.info('Market closing')
 
         self._is_open = False
         for stock in self.__stocks.values():
-            stock.close()
+            await stock.event_close()
 
-    def trader_add(self, ident: typing.Hashable, trader: Trader):
+    @closedonly
+    async def trader_create(self, ident: int, trader: Trader):
         """
         When closed,
         Add a entity.
@@ -100,46 +152,34 @@ class Market:
         :param trader:
         :return:
         """
-        if self._is_open:
-            raise MarketOpenedError
         self.__traders[ident] = trader
         return ident
 
-    def trader_get(self, ident: typing.Hashable):
+    async def trader_get(self, ident: int):
         return self.__traders[ident]
 
-    def trader_del(self, ident: typing.Hashable):
-        """
-        When closed,
-        Delete the entity.
-        :param ident:
-        :return:
-        """
-        if self._is_open:
-            raise MarketOpenedError
-        s = self.__traders.pop(ident)
-        del s
-
-    def stock_list(self):
+    async def stock_list(self):
         """
         Show the stocks.
         :return:
         """
         return self.__stocks
 
-    def stock_add(self, ticker: typing.Hashable):
+    @closedonly
+    async def stock_load(self, ticker: str) -> None:
         """
         When closed,
         Add a stock.
         :param ticker:
         :return:
         """
-        if self._is_open:
-            raise MarketOpenedError
-        self.__stocks[ticker] = Stock(self)
-        return self.stock_get(ticker)
+        s = self.__stocks.get(ticker)
+        if s is None:
+            s = Stock(self, ticker)
+        await s.load()
+        self.__stocks[ticker] = s
 
-    def stock_get(self, ticker: typing.Hashable):
+    async def stock_get(self, ticker: str) -> Stock:
         """
         Get a stock.
         :param ticker:
@@ -147,20 +187,9 @@ class Market:
         """
         return self.__stocks[ticker]
 
-    def stock_del(self, ticker: typing.Hashable):
-        """
-        When closed,
-        Delete a stock.
-        :param ticker:
-        :return:
-        """
-        if self._is_open:
-            raise MarketOpenedError
-        s = self.__stocks.pop(ticker)
-        del s
-
-    def order_put(self, traderident: typing.Hashable, ticker: typing.Hashable,
-                  orderdirection: OrderDirection, count: int, price: Union[int, None] = None):
+    @openedonly
+    async def order_put(self, traderident: int, ticker: str,
+                  orderdirection: OrderDirection, count: int, price: Union[int, None] = None) -> None:
         """
         Trader에서 order을 넣을 것.
         :param traderident:
@@ -170,10 +199,8 @@ class Market:
         :param price: 시장가 매매를 원할 시 None
         :return:
         """
-        if not self._is_open:
-            raise MarketClosedError
 
-        stock = self.stock_get(ticker)
+        stock = await self.stock_get(ticker)
         price = self.price_round(price)
 
         if not (stock.lowlimit <= price <= stock.upplimit):
@@ -188,6 +215,3 @@ class Market:
         stock.order_put(order)
         order.activate()
         return order
-
-    # def order_del(self):
-    #    pass

@@ -1,6 +1,7 @@
 import asyncio
 import os
 
+import aiofiles as aiofiles
 import psycopg
 from psycopg import sql
 import websockets
@@ -31,19 +32,11 @@ class Gateway:
     async def _run(self):
         async with await psycopg.AsyncConnection.connect(**self.dbinfo, autocommit=False) as dbconn:
             async with dbconn.cursor() as cur:
-                await cur.execute(sql.SQL("""CREATE SCHEMA IF NOT EXISTS {schemaname}""").format(schemaname=sql.Identifier(self.schema)))
-                await cur.execute("""SELECT set_config('search_path', %s, false)""", (self.schema,))
-                await cur.execute(
-                    """CREATE TABLE IF NOT EXISTS apiusers (uid SERIAL PRIMARY KEY, trader TEXT DEFAULT NULL, privilege BIT(64) DEFAULT 0::BIT(64) NOT NULL);
-                    CREATE TABLE IF NOT EXISTS apikeys (uid INT REFERENCES apiusers (uid), apikey CHAR(86) PRIMARY KEY, ratelimit INT DEFAULT -1 NOT NULL);
-                    CREATE TABLE IF NOT EXISTS stocks (ticker TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL, totalamount INT DEFAULT 0 NOT NULL, parvalue INT DEFAULT 5000, closingprice INT DEFAULT 5000);
-                    CREATE TABLE IF NOT EXISTS traders (tid SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL);
-                    CREATE TABLE IF NOT EXISTS stockowns (tid INT REFERENCES traders (tid), ticker TEXT REFERENCES stocks (ticker), amount INT DEFAULT 0 NOT NULL);
-                    CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT);
-                    INSERT INTO config (key, value) VALUES 
-                    ('market_variancerate_float', '0.3'),
-                    ('market_pricestepsize_fe', $$1 /1000 5 /5000 10 /10000 50 /50000 100 /100000 500 /500000 1000$$)
-                    ON CONFLICT (key) DO NOTHING;""")
+                await cur.execute(sql.SQL("""CREATE SCHEMA IF NOT EXISTS {schemaname}""").format(schemaname=sql.Identifier(self.schema)), prepare=False)
+                await cur.execute("""SELECT set_config('search_path', %s, false)""", (self.schema,), prepare=False)
+
+                async with aiofiles.open("stocksheet/schema_init.sql", encoding='UTF-8') as f:
+                    await cur.execute(await f.read(), prepare=False)
 
         self.dbinfo['options'] = f"-c search_path={self.schema}"
 
