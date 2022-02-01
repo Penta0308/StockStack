@@ -47,11 +47,11 @@ class Market:
             except:
                 raise NotImplementedError
 
-    def price_round(self, price: Union[int, float], roundfunc: Callable[[Union[int, float]], int]=math.floor) -> Union[int, float]:
+    def price_round(self, price: int | float, roundfunc: Callable[[int | float], int]=math.floor) -> int | float:
         step = self._price_stepsize_f(price)
         return (roundfunc(price / step)) * step
 
-    def price_variance(self, refprice: int) -> Tuple[Union[int, float], Union[int, float]]:
+    def price_variance(self, refprice: int) -> Tuple[int | float, int | float]:
         return (self.price_round(refprice + self.price_round(refprice * self._variancerate)),
                 self.price_round(refprice - self.price_round(refprice * self._variancerate)))
 
@@ -86,10 +86,10 @@ class Market:
         return wrapper
 
     @connectdb
-    async def cursor(self):
+    async def cursor(self, name: str="") -> psycopg.AsyncCursor | psycopg.AsyncServerCursor:
         return self.__dbconn.cursor()
 
-    def __init__(self, dbinfo):
+    def __init__(self, dbinfo: dict):
         self.__traders: Dict[int, Trader] = dict()
         self.__stocks: Dict[str, Stock] = dict()
         self._is_open: bool = False
@@ -101,13 +101,13 @@ class Market:
         self._variancerate = 0.001   # too
 
     @connectdb
-    async def config_read(self, key):
+    async def config_read(self, key: str) -> str:
         async with self.__dbconn.cursor() as cur:
             await cur.execute("""SELECT value from config WHERE key = %s""", (key,), prepare=True)
             return (await cur.fetchone())[0]
 
     @connectdb
-    async def config_write(self, key, value, update=True):
+    async def config_write(self, key: str, value: str, update: bool=True) -> None:
         async with self.__dbconn.cursor() as cur:
             if update:
                 await cur.execute("""INSERT INTO config (key, value) VALUES (%s, %s) ON CONFLICT DO UPDATE SET (key, value) = (excluded.key, excluded.value)""", (key, value), prepare=True)
@@ -115,7 +115,7 @@ class Market:
                 await cur.execute("""INSERT INTO config (key, value) VALUES (%s, %s)""", (key, value), prepare=True)
 
     @closedonly
-    async def open(self):
+    async def open(self) -> None:
         """
         Start a day.
         :return:
@@ -131,7 +131,7 @@ class Market:
         self._is_open = True
 
     @openedonly
-    async def close(self):
+    async def close(self) -> None:
         """
         End a day.
         :return:
