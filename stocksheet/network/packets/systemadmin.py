@@ -18,11 +18,11 @@ if TYPE_CHECKING:
 @PACKETS.register(4)
 @Privilege.require(Privilege.SYSTEMADMINISTRATION)
 class CmdLetAct(PacketR):
-    def __init__(self, connection: 'ClientConnection', t, d):
+    def __init__(self, connection: "ClientConnection", t, d):
         super().__init__(connection, t, d)
 
     async def process(self):
-        e = self._d['e']
+        e = self._d["e"]
         Settings.logger.warning(f"Execution UID: {self._connection.uid} CMD: {e}")
         f = StringIO()
         with redirect_stdout(f):
@@ -34,10 +34,9 @@ class CmdLetAct(PacketR):
 
 @PACKETS.register(5)
 class CmdLetResp(PacketT):
-    def __init__(self, connection: 'ClientConnection', t, d):
+    def __init__(self, connection: "ClientConnection", t, d):
         super().__init__(connection, t, d)
 
     async def process(self):
         self._d = {"r": self._d}
         await super().process()
-

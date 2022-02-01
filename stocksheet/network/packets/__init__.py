@@ -17,7 +17,7 @@ class Packet:
 class PacketR(Packet):
     REQUIRE_PRIVILEGE = Privilege.ALL
 
-    def __init__(self, connection: 'ClientConnection', t, d):
+    def __init__(self, connection: "ClientConnection", t, d):
         self._connection = connection
         self._t = t
         self._d = d
@@ -28,7 +28,7 @@ class PacketR(Packet):
 
 
 class PacketT(Packet):
-    def __init__(self, connection: 'ClientConnection', t, d):
+    def __init__(self, connection: "ClientConnection", t, d):
         self._connection = connection
         self._t = t
         self._d = d
@@ -37,9 +37,9 @@ class PacketT(Packet):
         await self._dump_send()
 
     async def _dump_send(self):
-        j = {'op': self.__class__.OPCODE, 'd': self._d}
+        j = {"op": self.__class__.OPCODE, "d": self._d}
         if self._t is not None:
-            j['t'] = self._t
+            j["t"] = self._t
         await self._connection.send(json.dumps(j))
 
 

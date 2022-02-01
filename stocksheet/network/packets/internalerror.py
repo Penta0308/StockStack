@@ -14,10 +14,9 @@ if TYPE_CHECKING:
 
 @PACKETS.register(3)
 class InternalErrorResp(PacketT):
-    def __init__(self, connection: 'ClientConnection', d: Exception):
+    def __init__(self, connection: "ClientConnection", d: Exception):
         super().__init__(connection, None, d)
 
     async def process(self):
-        self._d = {"en": type(self._d).__name__,
-                   "ed": str(self._d)}
+        self._d = {"en": type(self._d).__name__, "ed": str(self._d)}
         await super().process()

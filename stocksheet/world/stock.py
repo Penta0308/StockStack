@@ -7,31 +7,42 @@ if TYPE_CHECKING:
 
 
 class Stock:
-    def __init__(self, market: 'Market', ticker: str):
+    def __init__(self, market: "Market", ticker: str):
         self.market = market
         self.ticker = ticker
-        self.name = 'Unnamed'
+        self.name = "Unnamed"
         self.sellorders: List[Order] = list()
         self.buyorders: List[Order] = list()
         self.refprice = 0  # 기준가격. 전일종가 또는 기세가
         self.curprice = 0  # 현재가격.
         self.upplimit = 0
         self.lowlimit = 0
-        self.sellpriorityfunc = lambda x: ((-self.lowlimit if x is None else -x.price), x.timestamp, x.count)
-        self.buypriorityfunc = lambda x: ((self.upplimit if x is None else x.price), x.timestamp, x.count)
+        self.sellpriorityfunc = lambda x: (
+            (-self.lowlimit if x is None else -x.price),
+            x.timestamp,
+            x.count,
+        )
+        self.buypriorityfunc = lambda x: (
+            (self.upplimit if x is None else x.price),
+            x.timestamp,
+            x.count,
+        )
 
     @staticmethod
-    async def create(market: 'Market', ticker: str, name: str, parvalue = 5000):
+    async def create(market: "Market", ticker: str, name: str, parvalue=5000):
         async with market.cursor() as cur:
             await cur.execute(
                 """INSERT INTO stocks (ticker, name, parvalue, closingprice) VALUES (%s, %s, %s, %s) RETURNING ticker""",
-                (ticker, name, parvalue, parvalue))
+                (ticker, name, parvalue, parvalue),
+            )
             return (await cur.fetchone())[0]
 
     async def load(self):
         async with self.market.cursor() as cur:
             await cur.execute(
-                """SELECT (name, parvalue, closingprice) FROM stocks WHERE ticker = %s""", (self.ticker,))
+                """SELECT (name, parvalue, closingprice) FROM stocks WHERE ticker = %s""",
+                (self.ticker,),
+            )
             r = await cur.fetchone()
             self.name = r[0]
             self.refprice = r[2]
@@ -39,11 +50,12 @@ class Stock:
     async def dump(self):
         async with self.market.cursor() as cur:
             await cur.execute(
-                """UPDATE stocks SET (name, closingprice) = (%s, %s)WHERE ticker = %s""", (self.ticker, self.name, self.refprice))
+                """UPDATE stocks SET (name, closingprice) = (%s, %s)WHERE ticker = %s""",
+                (self.ticker, self.name, self.refprice),
+            )
             r = await cur.fetchone()
             self.name = r[0]
             self.refprice = r[2]
-
 
     async def event_open(self):
         await self.load()
@@ -103,7 +115,9 @@ class Stock:
                             self.update_curprice(accprice)
                     else:
                         if so.price <= bo.price:
-                            accprice = so.price if so.timestamp < bo.timestamp else bo.price
+                            accprice = (
+                                so.price if so.timestamp < bo.timestamp else bo.price
+                            )
                             tracount = min(bo.count, so.count)
                             if tracount > 0:
                                 so.trade(accprice, tracount)

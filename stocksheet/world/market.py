@@ -21,19 +21,19 @@ class MarketClosedError(Exception):
 class StockPriceLimitError(Exception):
     pass
 
-class Market:
 
+class Market:
     class PriceStepsizeFEval:
         _pricerange: Union[List[int], List[float]]
         _steps: Union[List[int], List[float]]
 
         def __init__(self):
-            self._pricerange= list()
+            self._pricerange = list()
             self._steps = list()
 
         def compile(self, s: str) -> None:
-            for p in s.split(' '):
-                if p[0] == '/':
+            for p in s.split(" "):
+                if p[0] == "/":
                     self._pricerange.append(int(p[1:]))
                 else:
                     self._steps.append(int(p))
@@ -47,46 +47,60 @@ class Market:
             except:
                 raise NotImplementedError
 
-    def price_round(self, price: int | float, roundfunc: Callable[[int | float], int]=math.floor) -> int | float:
+    def price_round(
+            self, price: int | float, roundfunc: Callable[[int | float], int] = math.floor
+    ) -> int | float:
         step = self._price_stepsize_f(price)
         return (roundfunc(price / step)) * step
 
     def price_variance(self, refprice: int) -> Tuple[int | float, int | float]:
-        return (self.price_round(refprice + self.price_round(refprice * self._variancerate)),
-                self.price_round(refprice - self.price_round(refprice * self._variancerate)))
+        return (
+            self.price_round(
+                refprice + self.price_round(refprice * self._variancerate)
+            ),
+            self.price_round(
+                refprice - self.price_round(refprice * self._variancerate)
+            ),
+        )
 
     @staticmethod
     def closedonly(f):
         @wraps(f)
-        async def wrapper(self: 'Market', *args, **kwargs):
+        async def wrapper(self: "Market", *args, **kwargs):
             if self._is_open:
                 raise MarketOpenedError
             else:
                 return await f(self, *args, **kwargs)
+
         return wrapper
 
     @staticmethod
     def openedonly(f):
         @wraps(f)
-        async def wrapper(self: 'Market', *args, **kwargs):
+        async def wrapper(self: "Market", *args, **kwargs):
             if not self._is_open:
                 raise MarketOpenedError
             else:
                 return await f(self, *args, **kwargs)
+
         return wrapper
 
     @staticmethod
     def connectdb(f):
         @wraps(f)
-        async def wrapper(self: 'Market', *args, **kwargs):
+        async def wrapper(self: "Market", *args, **kwargs):
             if self.__dbconn is None:
-                self.__dbconn = await psycopg.AsyncConnection.connect(**self.dbinfo, autocommit=True)
+                self.__dbconn = await psycopg.AsyncConnection.connect(
+                    **self.dbinfo, autocommit=True
+                )
             return await f(self, *args, **kwargs)
 
         return wrapper
 
     @connectdb
-    async def cursor(self, name: str="") -> psycopg.AsyncCursor | psycopg.AsyncServerCursor:
+    async def cursor(
+            self, name: str = ""
+    ) -> psycopg.AsyncCursor | psycopg.AsyncServerCursor:
         return self.__dbconn.cursor()
 
     def __init__(self, dbinfo: dict):
@@ -98,21 +112,31 @@ class Market:
         self.__dbconn: Optional[psycopg.AsyncConnection] = None
 
         self._price_stepsize_f = Market.PriceStepsizeFEval()  # Initial... won't work
-        self._variancerate = 0.001   # too
+        self._variancerate = 0.001  # too
 
     @connectdb
     async def config_read(self, key: str) -> str:
         async with self.__dbconn.cursor() as cur:
-            await cur.execute("""SELECT value from config WHERE key = %s""", (key,), prepare=True)
+            await cur.execute(
+                """SELECT value from config WHERE key = %s""", (key,), prepare=True
+            )
             return (await cur.fetchone())[0]
 
     @connectdb
-    async def config_write(self, key: str, value: str, update: bool=True) -> None:
+    async def config_write(self, key: str, value: str, update: bool = True) -> None:
         async with self.__dbconn.cursor() as cur:
             if update:
-                await cur.execute("""INSERT INTO config (key, value) VALUES (%s, %s) ON CONFLICT DO UPDATE SET (key, value) = (excluded.key, excluded.value)""", (key, value), prepare=True)
+                await cur.execute(
+                    """INSERT INTO config (key, value) VALUES (%s, %s) ON CONFLICT DO UPDATE SET (key, value) = (excluded.key, excluded.value)""",
+                    (key, value),
+                    prepare=True,
+                )
             else:
-                await cur.execute("""INSERT INTO config (key, value) VALUES (%s, %s)""", (key, value), prepare=True)
+                await cur.execute(
+                    """INSERT INTO config (key, value) VALUES (%s, %s)""",
+                    (key, value),
+                    prepare=True,
+                )
 
     @closedonly
     async def open(self) -> None:
@@ -121,10 +145,12 @@ class Market:
         :return:
         """
 
-        Settings.logger.info('Market opening')
+        Settings.logger.info("Market opening")
 
-        self._variancerate = float(await self.config_read('market_variancerate_float'))
-        self._price_stepsize_f.compile(await self.config_read('market_pricestepsize_fe'))
+        self._variancerate = float(await self.config_read("market_variancerate_float"))
+        self._price_stepsize_f.compile(
+            await self.config_read("market_pricestepsize_fe")
+        )
 
         for stock in self.__stocks.values():
             await stock.event_open()
@@ -137,7 +163,7 @@ class Market:
         :return:
         """
 
-        Settings.logger.info('Market closing')
+        Settings.logger.info("Market closing")
 
         self._is_open = False
         for stock in self.__stocks.values():
@@ -188,8 +214,14 @@ class Market:
         return self.__stocks[ticker]
 
     @openedonly
-    async def order_put(self, traderident: int, ticker: str,
-                  orderdirection: OrderDirection, count: int, price: Union[int, None] = None) -> None:
+    async def order_put(
+            self,
+            traderident: int,
+            ticker: str,
+            orderdirection: OrderDirection,
+            count: int,
+            price: Union[int, None] = None,
+    ) -> None:
         """
         Trader에서 order을 넣을 것.
         :param traderident:

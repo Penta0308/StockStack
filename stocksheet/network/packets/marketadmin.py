@@ -11,12 +11,12 @@ if TYPE_CHECKING:
 @PACKETS.register(6)
 @Privilege.require(Privilege.MARKETADMINISTRATION)
 class MarketStateAct(PacketR):
-    def __init__(self, connection: 'ClientConnection', t, d):
+    def __init__(self, connection: "ClientConnection", t, d):
         super().__init__(connection, t, d)
 
     async def process(self):
 
-        ts = self._d['s']
+        ts = self._d["s"]
 
         if ts == "open":
             await self._connection.gateway.market.open()
@@ -42,13 +42,12 @@ class MarketStateResp(PacketT):
 @PACKETS.register(8)
 @Privilege.require(Privilege.MARKETADMINISTRATION)
 class MarketConfAct(PacketR):
-    def __init__(self, connection: 'ClientConnection', t, d):
+    def __init__(self, connection: "ClientConnection", t, d):
         super().__init__(connection, t, d)
 
     async def process(self):
-
-        k = self._d['k']
-        v = self._d['v']
+        k = self._d["k"]
+        v = self._d["v"]
 
         await self._connection.gateway.market.config_write(k, v)
 
@@ -61,16 +60,17 @@ class MarketConfAct(PacketR):
 class MarketConfResp(PacketT):
     pass
 
+
 @PACKETS.register(10)
 @Privilege.require(Privilege.MARKETADMINISTRATION)
 class StockCreateAct(PacketR):
-    def __init__(self, connection: 'ClientConnection', t, d):
+    def __init__(self, connection: "ClientConnection", t, d):
         super().__init__(connection, t, d)
 
     async def process(self):
-        t = self._d['t']
-        n = self._d['n']
-        p = self._d['p']
+        t = self._d["t"]
+        n = self._d["n"]
+        p = self._d["p"]
 
         await Stock.create(self._connection.gateway.market, t, n, p)
 
@@ -85,21 +85,19 @@ class StockCreateAct(PacketR):
 class StockCreateResp(PacketT):
     pass
 
+
 @PACKETS.register(12)
 @Privilege.require(Privilege.MARKETADMINISTRATION)
 class StockAlterAct(PacketR):
-    def __init__(self, connection: 'ClientConnection', t, d):
+    def __init__(self, connection: "ClientConnection", t, d):
         super().__init__(connection, t, d)
 
     async def process(self):
-
-        t = self._d['t']
-        k = self._d['k']
-        v = self._d['v']
+        t = self._d["t"]
+        k = self._d["k"]
+        v = self._d["v"]
 
         s = await self._connection.gateway.market.stock_get(t)
-
-
 
         d = {"t": t, "k": k, "v": v}
 

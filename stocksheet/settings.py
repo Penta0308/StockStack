@@ -1,5 +1,6 @@
 import json
 
+
 class Settings:
     _settings = None
 
@@ -10,7 +11,7 @@ class Settings:
     @staticmethod
     def load():
         if Settings._settings is None:
-            with open('config/settings.json', 'r', encoding='utf-8') as f:
+            with open("config/settings.json", "r", encoding="utf-8") as f:
                 Settings._settings = json.load(f)
 
     @staticmethod

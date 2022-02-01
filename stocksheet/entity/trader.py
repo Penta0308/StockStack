@@ -9,7 +9,7 @@ class Trader:
     def __init__(self, market, traderident: typing.Hashable):
         self.market = market
         self.ident = traderident
-        self.name = '(Unnamed)'
+        self.name = "(Unnamed)"
         self.wallet = Wallet(self.ident)
 
     def stock_get(self, ticker: str, dbconn):

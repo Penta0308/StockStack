@@ -17,7 +17,15 @@ class OrderDirection(Enum):
 
 
 class Order:
-    def __init__(self, market: 'Market', traderident: typing.Hashable, ticker, price, count, timestamp):
+    def __init__(
+            self,
+            market: "Market",
+            traderident: typing.Hashable,
+            ticker,
+            price,
+            count,
+            timestamp,
+    ):
         self.market = market
         self.traderident = traderident
         self.ticker = ticker
@@ -72,7 +80,9 @@ class OrderBuy(Order):
         trader.stock_cash_give(self.ticker, count)
 
     def close(self):
-        self.market.trader_get(self.traderident).wallet_hold_release(self.count * self.holding_amount)
+        self.market.trader_get(self.traderident).wallet_hold_release(
+            self.count * self.holding_amount
+        )
 
 
 class OrderSell(Order):
@@ -92,4 +102,6 @@ class OrderSell(Order):
         trader.wallet_give(count * price)
 
     def close(self):
-        self.market.trader_get(self.traderident).stock_hold_release(self.ticker, self.count)
+        self.market.trader_get(self.traderident).stock_hold_release(
+            self.ticker, self.count
+        )
