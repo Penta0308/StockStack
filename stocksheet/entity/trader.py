@@ -26,11 +26,10 @@ class Trader:
     async def load(self):
         async with self.market.cursor() as cur:
             await cur.execute(
-                """SELECT (name) FROM traders WHERE tid = %s""",
+                """SELECT name FROM traders WHERE tid = %s""",
                 (self.ident,),
             )
-            r = await cur.fetchone()
-            self.name = r[0]
+            self.name = (await cur.fetchone())[0]
 
     async def dump(self):
         async with self.market.cursor() as cur:
