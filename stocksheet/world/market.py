@@ -86,7 +86,9 @@ class Market:
         return wrapper
 
     async def init(self):
-        self.__dbconn = await psycopg.AsyncConnection.connect(**self.dbinfo, autocommit=True)
+        self.__dbconn = await psycopg.AsyncConnection.connect(
+            **self.dbinfo, autocommit=True
+        )
 
     def cursor(self, name: str = "") -> psycopg.AsyncCursor | psycopg.AsyncServerCursor:
         return self.__dbconn.cursor(name)

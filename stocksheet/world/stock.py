@@ -29,8 +29,13 @@ class Stock:
         )
 
     @staticmethod
-    async def create(market: "Market", ticker: str, name: str, parvalue: int | float = 5000,
-                     price: int | float | None = None):
+    async def create(
+            market: "Market",
+            ticker: str,
+            name: str,
+            parvalue: int | float = 5000,
+            price: int | float | None = None,
+    ):
         if price is None:
             price = parvalue
         async with market.cursor() as cur:

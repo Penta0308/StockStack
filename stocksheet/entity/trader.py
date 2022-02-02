@@ -53,5 +53,9 @@ class Trader:
             r = await cur.fetchone()
             self.name = r[0]
 
-    async def order(self, ticker: str, orderdirection, count: int, price: None | int | float):
-        order = await self.market.order_put(self.ident, ticker, orderdirection, count, price)
+    async def order(
+            self, ticker: str, orderdirection, count: int, price: None | int | float
+    ):
+        order = await self.market.order_put(
+            self.ident, ticker, orderdirection, count, price
+        )

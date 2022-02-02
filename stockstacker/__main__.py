@@ -54,7 +54,6 @@ if __name__ == "__main__":
             start_offlines(renew=True)
             signal.pause()  # WAIT
 
-
         main_boot()
     elif sys.argv[1] == "c":  # CREATE
 
@@ -67,7 +66,6 @@ if __name__ == "__main__":
             nginx_util.nginx_reload()
             start_sheet(n, p)
 
-
         main_create()
     elif sys.argv[1] == "r":  # RELOAD
 
@@ -77,7 +75,6 @@ if __name__ == "__main__":
             logger.setLevel(loglevel)
             nginx_util.nginx_reload()
             start_offlines()
-
 
         main_reload()
     else:
