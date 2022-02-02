@@ -85,23 +85,11 @@ class Market:
 
         return wrapper
 
-    @staticmethod
-    def connectdb(f):
-        @wraps(f)
-        async def wrapper(self: "Market", *args, **kwargs):
-            if self.__dbconn is None:
-                self.__dbconn = await psycopg.AsyncConnection.connect(
-                    **self.dbinfo, autocommit=True
-                )
-            return await f(self, *args, **kwargs)
+    async def init(self):
+        self.__dbconn = await psycopg.AsyncConnection.connect(**self.dbinfo, autocommit=True)
 
-        return wrapper
-
-    @connectdb
-    async def cursor(
-            self, name: str = ""
-    ) -> psycopg.AsyncCursor | psycopg.AsyncServerCursor:
-        return self.__dbconn.cursor()
+    def cursor(self, name: str = "") -> psycopg.AsyncCursor | psycopg.AsyncServerCursor:
+        return self.__dbconn.cursor(name)
 
     def __init__(self, dbinfo: dict):
         self.__traders: Dict[int, Trader] = dict()
@@ -114,7 +102,6 @@ class Market:
         self._price_stepsize_f = Market.PriceStepsizeFEval()  # Initial... won't work
         self._variancerate = 0.001  # too
 
-    @connectdb
     async def config_read(self, key: str) -> str:
         async with self.__dbconn.cursor() as cur:
             await cur.execute(
@@ -122,7 +109,6 @@ class Market:
             )
             return (await cur.fetchone())[0]
 
-    @connectdb
     async def config_write(self, key: str, value: str, update: bool = True) -> None:
         async with self.__dbconn.cursor() as cur:
             if update:
@@ -169,19 +155,18 @@ class Market:
         for stock in self.__stocks.values():
             await stock.event_close()
 
-    @closedonly
-    async def trader_create(self, ident: int, trader: Trader):
-        """
-        When closed,
-        Add a entity.
-        :param ident:
-        :param trader:
-        :return:
-        """
-        self.__traders[ident] = trader
-        return ident
+    async def trader_list(self):
+        return self.__traders
 
-    async def trader_get(self, ident: int):
+    @closedonly
+    async def trader_load(self, ident: int) -> None:
+        t = self.__traders.get(ident)
+        if t is None:
+            t = Trader(self, ident)
+        await t.load()
+        self.__traders[ident] = t
+
+    async def trader_get(self, ident: int) -> Trader:
         return self.__traders[ident]
 
     async def stock_list(self):

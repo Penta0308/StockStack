@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING
 
+from stocksheet.entity.trader import Trader
 from stocksheet.network.auth import Privilege
 from stocksheet.network.packets import PACKETS, PacketR, PacketT
 from stocksheet.world.stock import Stock
@@ -71,8 +72,9 @@ class StockCreateAct(PacketR):
         t = self._d["t"]
         n = self._d["n"]
         p = self._d["p"]
+        r = self._d["r"]
 
-        await Stock.create(self._connection.gateway.market, t, n, p)
+        await Stock.create(self._connection.gateway.market, t, n, p, r)
 
         await self._connection.gateway.market.stock_load(t)
 
@@ -88,22 +90,23 @@ class StockCreateResp(PacketT):
 
 @PACKETS.register(12)
 @Privilege.require(Privilege.MARKETADMINISTRATION)
-class StockAlterAct(PacketR):
+class TraderCreateAct(PacketR):
     def __init__(self, connection: "ClientConnection", t, d):
         super().__init__(connection, t, d)
 
     async def process(self):
         t = self._d["t"]
-        k = self._d["k"]
-        v = self._d["v"]
+        n = self._d["n"]
 
-        s = await self._connection.gateway.market.stock_get(t)
+        await Trader.create(self._connection.gateway.market, t, n)
 
-        d = {"t": t, "k": k, "v": v}
+        await self._connection.gateway.market.trader_load(t)
 
-        await MarketConfResp(self._connection, self._t, d).process()
+        d = {"t": t, "n": n}
+
+        await TraderCreateResp(self._connection, self._t, d).process()
 
 
 @PACKETS.register(13)
-class StockAlterResp(PacketT):
+class TraderCreateResp(PacketT):
     pass

@@ -58,6 +58,7 @@ class Gateway:
         await self.auth.start()
 
         self.market = Market(self.dbinfo)
+        await self.market.init()
 
         async with websockets.unix_serve(self.handler_receive, self.__socket):
             Settings.logger.info(f"Gateway {self.name} Listening at {self.__socket}")

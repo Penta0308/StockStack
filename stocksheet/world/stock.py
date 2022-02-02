@@ -10,7 +10,7 @@ class Stock:
     def __init__(self, market: "Market", ticker: str):
         self.market = market
         self.ticker = ticker
-        self.name = "Unnamed"
+        self.name = "(Unnamed)"
         self.sellorders: List[Order] = list()
         self.buyorders: List[Order] = list()
         self.refprice = 0  # 기준가격. 전일종가 또는 기세가
@@ -29,11 +29,14 @@ class Stock:
         )
 
     @staticmethod
-    async def create(market: "Market", ticker: str, name: str, parvalue=5000):
+    async def create(market: "Market", ticker: str, name: str, parvalue: int | float = 5000,
+                     price: int | float | None = None):
+        if price is None:
+            price = parvalue
         async with market.cursor() as cur:
             await cur.execute(
                 """INSERT INTO stocks (ticker, name, parvalue, closingprice) VALUES (%s, %s, %s, %s) RETURNING ticker""",
-                (ticker, name, parvalue, parvalue),
+                (ticker, name, parvalue, price),
             )
             return (await cur.fetchone())[0]
 
@@ -43,19 +46,16 @@ class Stock:
                 """SELECT (name, parvalue, closingprice) FROM stocks WHERE ticker = %s""",
                 (self.ticker,),
             )
-            r = await cur.fetchone()
+            r = (await cur.fetchone())[0]
             self.name = r[0]
             self.refprice = r[2]
 
     async def dump(self):
         async with self.market.cursor() as cur:
             await cur.execute(
-                """UPDATE stocks SET (name, closingprice) = (%s, %s)WHERE ticker = %s""",
-                (self.ticker, self.name, self.refprice),
+                """UPDATE stocks SET (name, closingprice) = (%s, %s) WHERE ticker = %s""",
+                (self.name, self.refprice, self.ticker),
             )
-            r = await cur.fetchone()
-            self.name = r[0]
-            self.refprice = r[2]
 
     async def event_open(self):
         await self.load()
