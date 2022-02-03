@@ -1,7 +1,4 @@
-import typing
-from typing import TYPE_CHECKING, List, Dict
-
-from stocksheet.world.wallet import Wallet
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from stocksheet.world.market import Market
@@ -12,7 +9,7 @@ class Trader:
         self.market = market
         self.ident = traderident
         self.name = "(Unnamed)"
-        self.wallet = Wallet(self.ident)
+        self.wallet = None
 
     @staticmethod
     async def create(market: "Market", traderident: int, name: str):
@@ -47,11 +44,11 @@ class Trader:
     async def stockown_get(self, ticker: str):
         async with self.market.cursor() as cur:
             await cur.execute(
-                """SELECT coalesce((SELECT (amount) from stockowns WHERE tid = %s AND ticker = %s), 0)""",
+                """SELECT coalesce((SELECT amount from stockowns WHERE tid = %s AND ticker = %s LIMIT 1), 0)""",
                 (self.ident, ticker),
             )
             r = await cur.fetchone()
-            self.name = r[0]
+            return r[0]
 
     async def order(
             self, ticker: str, orderdirection, count: int, price: None | int | float

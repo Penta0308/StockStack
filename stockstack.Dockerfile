@@ -20,10 +20,8 @@ RUN cat ./config/stockstack_sudoers | (EDITOR="tee -a" visudo)
 
 USER stockstack
 
-COPY . /app
-#COPY run.sh /app/
-#COPY stockstacker/ /app/stockstacker/
-#COPY stocksheet/ /app/stocksheet/
+COPY stockstacker/ /app/stockstacker/
+COPY stocksheet/ /app/stocksheet/
 
 RUN rm --force /etc/nginx/sites-enabled/default || true \
     && cp ./config/nginx_server.conf /etc/nginx/sites-enabled/nginx_server.conf

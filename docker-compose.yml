@@ -33,3 +33,8 @@ services:
       POSTGRES_USER: stockstack
       POSTGRES_PASSWORD: stockstack
       POSTGRES_DB: stockstack
+
+  wallet:
+    build:
+      context: ./
+      dockerfile: jwallet.Dockerfile

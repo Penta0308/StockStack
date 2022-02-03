@@ -1,12 +1,15 @@
-class Wallet:
-    def __init__(self, tid):
-        self.__traderident = tid
+import abc
 
-    def wallet_get(self, dbconn):
-        return self.wallet_total - self.wallet_hold_get()
+
+class Wallet:
+    def __init__(self, trader):
+        self.__trader = trader
+
+    def wallet_get(self):
+        pass
 
     def wallet_take(self, amount):
-        self.wallet_total -= amount
+        pass
 
     def wallet_give(self, amount):
-        self.wallet_total += amount
+        pass
