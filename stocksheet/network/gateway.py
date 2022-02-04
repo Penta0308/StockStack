@@ -61,7 +61,7 @@ class Gateway:
         await self.market.init()
 
         async with websockets.unix_serve(self.handler_receive, self.__socket):
-            Settings.logger.info(f"Gateway {self.name} Listening at {self.__socket}")
+            Settings.logger.info(f"Gateway Listening at {self.__socket}")
             os.chmod(self.__socket, 0o660)
             await asyncio.Future()
 
@@ -69,7 +69,7 @@ class Gateway:
         await self.__wsserver.wait_closed()
 
         await self.auth.stop()
-        Settings.logger.info(f"Gateway {self.name} Stopped")
+        Settings.logger.info(f"Gateway Stopped")
 
     async def handler_receive(self, websocket: websockets.WebSocketServerProtocol):
         await ClientConnection(self, websocket).run()
