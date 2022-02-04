@@ -140,6 +140,12 @@ class Market:
             await self.config_read("market_pricestepsize_fe")
         )
 
+        for ticker in await Stock.searchall(self):
+            await self.stock_load(ticker)
+
+        for tid in await Trader.searchall(self):
+            await self.trader_load(tid)
+
         for stock in self.__stocks.values():
             await stock.event_open()
         self._is_open = True
