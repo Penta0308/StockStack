@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 if TYPE_CHECKING:
     from stocksheet.world.market import Market
 
@@ -10,6 +12,7 @@ class Trader:
         self.ident = traderident
         self.name = "(Unnamed)"
         self.wallet = None
+        self.brainv = None
 
     @staticmethod
     async def create(market: "Market", traderident: int, name: str):
@@ -20,19 +23,28 @@ class Trader:
             )
             return (await cur.fetchone())[0]
 
+    @staticmethod
+    async def searchall(market: "Market"):
+        async with market.cursor() as cur:
+            await cur.execute("""SELECT ARRAY(SELECT tid FROM traders)""")
+            return (await cur.fetchone())[0]
+
     async def load(self):
         async with self.market.cursor() as cur:
             await cur.execute(
-                """SELECT name FROM traders WHERE tid = %s""",
+                """SELECT name, brainv FROM traders WHERE tid = %s""",
                 (self.ident,),
             )
-            self.name = (await cur.fetchone())[0]
+            r = await cur.fetchone()
+            self.name = r[0]
+            if r[1] is not None:
+                self.brainv = np.array(r[1], dtype=np.float32, copy=True)
 
     async def dump(self):
         async with self.market.cursor() as cur:
             await cur.execute(
-                """UPDATE traders SET (name) = (%s) WHERE tid = %s""",
-                (self.name, self.ident),
+                """UPDATE traders SET (name, brainv) = (%s, %s) WHERE tid = %s""",
+                (self.name, self.brainv.tolist() if self.brainv is not None else None, self.ident),
             )
 
     async def event_open(self):

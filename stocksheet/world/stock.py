@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING, List
 
+import numpy as np
+
 from stocksheet.world.order import OrderDirection, Order
 
 if TYPE_CHECKING:
@@ -27,6 +29,7 @@ class Stock:
             x.timestamp,
             x.count,
         )
+        self.worktype = None
 
     @staticmethod
     async def create(
@@ -45,21 +48,28 @@ class Stock:
             )
             return (await cur.fetchone())[0]
 
+    @staticmethod
+    async def searchall(market: "Market"):
+        async with market.cursor() as cur:
+            await cur.execute("""SELECT ARRAY(SELECT ticker FROM stocks)""")
+            return (await cur.fetchone())[0]
+
     async def load(self):
         async with self.market.cursor() as cur:
             await cur.execute(
-                """SELECT (name, parvalue, closingprice) FROM stocks WHERE ticker = %s""",
+                """SELECT name, parvalue, closingprice, worktype FROM stocks WHERE ticker = %s""",
                 (self.ticker,),
             )
-            r = (await cur.fetchone())[0]
+            r = await cur.fetchone()
             self.name = r[0]
             self.refprice = r[2]
+            self.worktype = np.array(r[3], dtype=np.float32, copy=True)
 
     async def dump(self):
         async with self.market.cursor() as cur:
             await cur.execute(
-                """UPDATE stocks SET (name, closingprice) = (%s, %s) WHERE ticker = %s""",
-                (self.name, self.refprice, self.ticker),
+                """UPDATE stocks SET (name, closingprice, worktype) = (%s, %s, %s) WHERE ticker = %s""",
+                (self.name, self.refprice, self.worktype.tolist(), self.ticker),
             )
 
     async def event_open(self):
