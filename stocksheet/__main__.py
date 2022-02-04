@@ -11,8 +11,6 @@ def run(name, socket):
         Settings.logger = multiprocessing.get_logger()
     Settings.load()
 
-    Settings.logger.name = name
-
     gateway = Gateway(name, Settings.get()["database"], socket)
 
     Settings.maincontext = globals()

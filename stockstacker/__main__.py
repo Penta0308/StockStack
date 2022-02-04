@@ -33,6 +33,7 @@ def start_sheet(x, p):
     from stocksheet import __main__
 
     sheet = multiprocessing.Process(target=stocksheet.__main__.run, args=(x, str(p)))
+    sheet.name = f"Stockstack {x}"
     sheet.start()
 
 
