@@ -1,7 +1,7 @@
 import abc
 import json
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Type
 
 from stocksheet.network.auth import Privilege
 
@@ -56,11 +56,11 @@ class PACKETS:
         return decorator
 
     @staticmethod
-    def packet_register(opcode: int, packet):
+    def packet_register(opcode: int, packet) -> None:
         if PACKETS.PACKETS_OPCODE.get(opcode) is not None:
             raise KeyError("Conflicting Packet OPCode")
         PACKETS.PACKETS_OPCODE[opcode] = packet
 
     @staticmethod
     def packet_lookup(opcode: int):
-        return PACKETS.PACKETS_OPCODE.get(opcode)
+        return PACKETS.PACKETS_OPCODE[opcode]
