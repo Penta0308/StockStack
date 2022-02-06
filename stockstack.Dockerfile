@@ -24,6 +24,7 @@ COPY stockstacker/ /app/stockstacker/
 COPY stocksheet/ /app/stocksheet/
 
 RUN rm --force /etc/nginx/sites-enabled/default || true \
-    && cp ./config/nginx_server.conf /etc/nginx/sites-enabled/nginx_server.conf
+    && cp ./config/nginx_server.conf /etc/nginx/sites-enabled/nginx_server.conf \
+    && mkdir --parents /run/stockstack/stocksheet
 
 CMD python -m stockstacker l

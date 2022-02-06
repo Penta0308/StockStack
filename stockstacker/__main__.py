@@ -3,7 +3,6 @@ import os
 import signal
 import multiprocessing
 
-import stocksheet.__main__
 from stockstacker import nginx_util
 
 HELP_MESSAGE = """loop: l
@@ -12,7 +11,7 @@ reload all market: r"""
 
 
 def find_online():
-    return [x for x in os.listdir("/run/stockstack")]
+    return [x for x in os.listdir("/run/stockstack/stocksheet")]
 
 
 def start_offlines(renew=False):
@@ -20,7 +19,7 @@ def start_offlines(renew=False):
     onl = find_online()
     if renew:
         for x in onl:
-            os.remove(f"/run/stockstack/{x}")
+            os.remove(f"/run/stockstack/stocksheet/{x}")
         onl = find_online()
     logger.debug(f"StockStacker Found: {pr} Running: {onl}")
     for x in set([x["x"] for x in pr]) - set(onl):
@@ -30,15 +29,16 @@ def start_offlines(renew=False):
 def start_sheet(x, p):
     logger.debug(f"Stockstack {x} Firing")
     sys.path.append(".")
-    from stocksheet import __main__
+    import stocksheet.__main__
 
     sheet = multiprocessing.Process(target=stocksheet.__main__.run, args=(x, str(p)))
     sheet.name = f"Stockstack {x}"
     sheet.start()
 
 
-logger = None
 loglevel = logging.DEBUG
+logger = logging.getLogger()
+logger.setLevel(loglevel)
 
 if __name__ == "__main__":
     multiprocessing.set_start_method("spawn")
@@ -53,9 +53,10 @@ if __name__ == "__main__":
             logger = multiprocessing.log_to_stderr(loglevel)
             nginx_util.nginx_restart()
             start_offlines(renew=True)
-            signal.pause()  # WAIT
+
 
         main_boot()
+        signal.pause()  # WAIT
     elif sys.argv[1] == "c":  # CREATE
 
         def main_create():

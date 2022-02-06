@@ -11,7 +11,7 @@ def proxy_create(x, p=None):
     :return: None
     """
     if p is None:
-        p = f"/run/stockstack/{x}"
+        p = f"/run/stockstack/stocksheet/{x}"
 
     with open(f"/app/data/nginxproxy/{x}.conf", "w") as f:
         # noinspection HttpUrlsUsage
