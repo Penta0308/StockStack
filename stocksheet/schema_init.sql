@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS apiusers
     trader    TEXT    DEFAULT NULL,
     privilege BIT(64) DEFAULT 0::BIT(64) NOT NULL
 );
+
 CREATE TABLE IF NOT EXISTS apikeys
 (
     uid       INT REFERENCES apiusers (uid),
@@ -28,8 +29,7 @@ CREATE TABLE IF NOT EXISTS traders
 (
     tid   SERIAL PRIMARY KEY,
     name  TEXT UNIQUE NOT NULL,
-    btype TEXT     DEFAULT NULL,
-    bcoef FLOAT4[] DEFAULT NULL
+    btype TEXT DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS stockowns
@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS config
     key   TEXT PRIMARY KEY,
     value TEXT
 );
+
 INSERT INTO config (key, value)
 VALUES ('market_variancerate_float', '0.3'),
        ('market_pricestepsize_fe', $$1 /1000 5 /5000 10 /10000 50 /50000 100 /100000 500 /500000 1000$$)

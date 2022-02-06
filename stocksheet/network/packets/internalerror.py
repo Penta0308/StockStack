@@ -9,12 +9,12 @@ from typing import TYPE_CHECKING
 from stocksheet.network.packets import PACKETS, PacketT
 
 if TYPE_CHECKING:
-    from stocksheet.network.connection import ClientConnection
+    from stocksheet.network.connection import WSConnection
 
 
 @PACKETS.register(3)
 class InternalErrorResp(PacketT):
-    def __init__(self, connection: "ClientConnection", d: Exception):
+    def __init__(self, connection: "WSConnection", d: Exception):
         super().__init__(connection, None, d)
 
     async def process(self):

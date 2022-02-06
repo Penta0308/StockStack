@@ -12,13 +12,13 @@ from stocksheet.network.auth import Privilege
 from stocksheet.network.packets import PACKETS, PacketR, PacketT
 
 if TYPE_CHECKING:
-    from stocksheet.network.connection import ClientConnection
+    from stocksheet.network.connection import WSConnection
 
 
 @PACKETS.register(4)
 @Privilege.require(Privilege.SYSTEMADMINISTRATION)
 class CmdLetAct(PacketR):
-    def __init__(self, connection: "ClientConnection", t, d):
+    def __init__(self, connection: "WSConnection", t, d):
         super().__init__(connection, t, d)
 
     async def process(self):
@@ -34,7 +34,7 @@ class CmdLetAct(PacketR):
 
 @PACKETS.register(5)
 class CmdLetResp(PacketT):
-    def __init__(self, connection: "ClientConnection", t, d):
+    def __init__(self, connection: "WSConnection", t, d):
         super().__init__(connection, t, d)
 
     async def process(self):

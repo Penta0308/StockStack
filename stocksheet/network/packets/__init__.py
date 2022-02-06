@@ -7,7 +7,7 @@ from stocksheet.network.auth import Privilege
 
 
 if TYPE_CHECKING:
-    from stocksheet.network.connection import ClientConnection
+    from stocksheet.network.connection import WSConnection
 
 
 class Packet:
@@ -17,7 +17,7 @@ class Packet:
 class PacketR(Packet):
     REQUIRE_PRIVILEGE = Privilege.ALL
 
-    def __init__(self, connection: "ClientConnection", t, d):
+    def __init__(self, connection: "WSConnection", t, d):
         self._connection = connection
         self._t = t
         self._d = d
@@ -28,7 +28,7 @@ class PacketR(Packet):
 
 
 class PacketT(Packet):
-    def __init__(self, connection: "ClientConnection", t, d):
+    def __init__(self, connection: "WSConnection", t, d):
         self._connection = connection
         self._t = t
         self._d = d

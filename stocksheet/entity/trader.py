@@ -14,7 +14,7 @@ class Trader:
         self.ident = traderident
         self.name = "(Unnamed)"
         self.wallet = None
-        self.brain = None
+        self.btype = None
 
     @staticmethod
     async def create(
@@ -25,18 +25,10 @@ class Trader:
             bcoef: np.ndarray | None = None,
     ):
         async with market.cursor() as cur:
-            if btype is None:
-                await cur.execute(
-                    """INSERT INTO traders (tid, name) VALUES (%s, %s) RETURNING tid""",
-                    (traderident, name),
-                )
-            else:
-                if bcoef is None:
-                    bcoef = BRAINS.brain_lookup(btype).DEFAULT_COEF
-                await cur.execute(
-                    """INSERT INTO traders (tid, name, btype, bcoef) VALUES (%s, %s, %s, %s) RETURNING tid""",
-                    (traderident, name, btype, bcoef),
-                )
+            await cur.execute(
+                """INSERT INTO traders (tid, name, btype) VALUES (%s, %s, %s) RETURNING tid""",
+                (traderident, name, btype),
+            )
             return (await cur.fetchone())[0]
 
     @staticmethod
@@ -53,14 +45,10 @@ class Trader:
             )
             r = await cur.fetchone()
             self.name = r[0]
-            btype = r[1]
-            if btype is not None:
-                self.brain = BRAINS.brain_lookup(btype)()
-                await cur.execute(
-                    """SELECT bcoef FROM traders WHERE tid = %s""",
-                    (self.ident,),
-                )
-                self.brain.load(await cur.fetchone())
+            self.btype = r[1]
+            if self.btype is not None:
+                pass
+                # TODO: BRAIN LOAD
             '''if r[1] is not None:
             await cur.execute(
                 """SELECT name, ttype FROM traders WHERE tid = %s""",
@@ -71,10 +59,10 @@ class Trader:
     async def dump(self):
         async with self.market.cursor() as cur:
             await cur.execute(
-                """UPDATE traders SET (name, brainv) = (%s, %s) WHERE tid = %s""",
+                """UPDATE traders SET (name, btype) = (%s, %s) WHERE tid = %s""",
                 (
                     self.name,
-                    self.brain.v.tolist() if self.brain.v is not None else None,
+                    self.btype,
                     self.ident,
                 ),
             )

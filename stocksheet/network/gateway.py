@@ -7,7 +7,7 @@ from psycopg import sql
 import websockets
 
 from stocksheet.network.auth import Auth
-from stocksheet.network.connection import ClientConnection
+from stocksheet.network.connection import WSConnection
 
 # noinspection PyUnresolvedReferences
 from stocksheet.network.packets import login, internalerror, systemadmin, marketadmin
@@ -72,4 +72,4 @@ class Gateway:
         Settings.logger.info(f"Gateway Stopped")
 
     async def handler_receive(self, websocket: websockets.WebSocketServerProtocol):
-        await ClientConnection(self, websocket).run()
+        await WSConnection(self, websocket).run()

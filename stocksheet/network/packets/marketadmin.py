@@ -6,13 +6,13 @@ from stocksheet.network.packets import PACKETS, PacketR, PacketT
 from stocksheet.world.stock import Stock
 
 if TYPE_CHECKING:
-    from stocksheet.network.connection import ClientConnection
+    from stocksheet.network.connection import WSConnection
 
 
 @PACKETS.register(6)
 @Privilege.require(Privilege.MARKETADMINISTRATION)
 class MarketStateAct(PacketR):
-    def __init__(self, connection: "ClientConnection", t, d):
+    def __init__(self, connection: "WSConnection", t, d):
         super().__init__(connection, t, d)
 
     async def process(self):
@@ -43,7 +43,7 @@ class MarketStateResp(PacketT):
 @PACKETS.register(8)
 @Privilege.require(Privilege.MARKETADMINISTRATION)
 class MarketConfAct(PacketR):
-    def __init__(self, connection: "ClientConnection", t, d):
+    def __init__(self, connection: "WSConnection", t, d):
         super().__init__(connection, t, d)
 
     async def process(self):
@@ -65,7 +65,7 @@ class MarketConfResp(PacketT):
 @PACKETS.register(10)
 @Privilege.require(Privilege.MARKETADMINISTRATION)
 class StockCreateAct(PacketR):
-    def __init__(self, connection: "ClientConnection", t, d):
+    def __init__(self, connection: "WSConnection", t, d):
         super().__init__(connection, t, d)
 
     async def process(self):
@@ -91,7 +91,7 @@ class StockCreateResp(PacketT):
 @PACKETS.register(12)
 @Privilege.require(Privilege.MARKETADMINISTRATION)
 class TraderCreateAct(PacketR):
-    def __init__(self, connection: "ClientConnection", t, d):
+    def __init__(self, connection: "WSConnection", t, d):
         super().__init__(connection, t, d)
 
     async def process(self):

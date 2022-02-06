@@ -1,5 +1,5 @@
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 import websockets
 from websockets.exceptions import ConnectionClosedError
@@ -12,15 +12,17 @@ if TYPE_CHECKING:
     from stocksheet.network.gateway import Gateway
 
 
-class ClientConnection:
+class WSConnection:
     websocket: websockets.WebSocketServerProtocol
 
     def __init__(
-            self, gateway: "Gateway", websocket: websockets.WebSocketServerProtocol
+            self, gateway: Union[None, "Gateway"], websocket: websockets.WebSocketCommonProtocol,
+            bypassauth: bool = False
     ):
-        self.gateway: "Gateway" = gateway
+        self.gateway = gateway
         self.websocket = websocket
         self.uid: None | int = None
+        self.bypassauth: bool = bypassauth
 
     async def send(self, p: str) -> None:
         await self.websocket.send(p)
@@ -33,7 +35,7 @@ class ClientConnection:
                     jo = json.loads(message)
                     pclass = PACKETS.packet_lookup(int(jo["op"]))
                     if issubclass(pclass, PacketR):
-                        if await self.gateway.auth.privilege_check(
+                        if self.bypassauth or await self.gateway.auth.privilege_check(
                                 self.uid, pclass.REQUIRE_PRIVILEGE
                         ):
                             recvpacket = pclass(self, jo.get("t"), jo["d"])
