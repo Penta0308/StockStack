@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, List, Callable
 
 import numpy as np
 import psycopg
+from psycopg import rows
 
 from stockstack.world.order import OrderDirection, Order
 
@@ -55,6 +56,15 @@ class Stock:
         async with curfactory() as cur:
             await cur.execute("""SELECT ARRAY(SELECT ticker FROM stocks)""")
             return (await cur.fetchone())[0]
+
+    @staticmethod
+    async def getinfo(
+            curfactory: Callable[[], psycopg.AsyncCursor], ticker: str):
+        async with curfactory() as cur:
+            cur.row_factory = rows.dict_row
+            await cur.execute("""SELECT ticker, name, parvalue, closingprice, worktype FROM stocks WHERE ticker = %s""",
+                              (ticker,))
+            return await cur.fetchone()
 
     async def load(self):
         async with self.market.cursor() as cur:

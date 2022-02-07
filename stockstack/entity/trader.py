@@ -1,7 +1,7 @@
-from typing import TYPE_CHECKING, Callable
+from typing import Callable
 
-import numpy as np
 import psycopg
+from psycopg import rows
 
 
 class Trader:
@@ -10,20 +10,17 @@ class Trader:
         self.ident = traderident
         self.name = "(Unnamed)"
         self.wallet = None
-        self.btype = None
 
     @staticmethod
     async def create(
             curfactory: Callable[[], psycopg.AsyncCursor],
             traderident: int,
             name: str,
-            btype: str = None,
-            bcoef: np.ndarray | None = None,
     ):
         async with curfactory() as cur:
             await cur.execute(
-                """INSERT INTO traders (tid, name, btype) VALUES (%s, %s, %s) RETURNING tid""",
-                (traderident, name, btype),
+                """INSERT INTO traders (tid, name) VALUES (%s, %s) RETURNING tid""",
+                (traderident, name),
             )
             return (await cur.fetchone())[0]
 
@@ -34,32 +31,29 @@ class Trader:
             await cur.execute("""SELECT tid FROM traders""")
             return await cur.fetchall()
 
+    @staticmethod
+    async def getinfo(
+            curfactory: Callable[[], psycopg.AsyncCursor], tid: int):
+        async with curfactory() as cur:
+            cur.row_factory = rows.dict_row
+            await cur.execute("""SELECT tid, name FROM traders WHERE tid = %s""", (tid,))
+            return await cur.fetchone()
+
     async def load(self):
         async with self.market.cursor() as cur:
             await cur.execute(
-                """SELECT name, btype FROM traders WHERE tid = %s""",
+                """SELECT name FROM traders WHERE tid = %s""",
                 (self.ident,),
             )
             r = await cur.fetchone()
             self.name = r[0]
-            self.btype = r[1]
-            if self.btype is not None:
-                pass
-                # TODO: BRAIN LOAD
-            '''if r[1] is not None:
-            await cur.execute(
-                """SELECT name, ttype FROM traders WHERE tid = %s""",
-                (self.ident,),
-            )
-                self.brain.setv(np.array(r[1], dtype=np.float32, copy=True))'''
 
     async def dump(self):
         async with self.market.cursor() as cur:
             await cur.execute(
-                """UPDATE traders SET (name, btype) = (%s, %s) WHERE tid = %s""",
+                """UPDATE traders SET (name) = (%s) WHERE tid = %s""",
                 (
                     self.name,
-                    self.btype,
                     self.ident,
                 ),
             )
