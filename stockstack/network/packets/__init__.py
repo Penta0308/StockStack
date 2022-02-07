@@ -1,13 +1,11 @@
 import abc
 import json
 
-from typing import TYPE_CHECKING, Dict, Type
-
-from stocksheet.network.auth import Privilege
+from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    from stocksheet.network.connection import WSConnection
+    from stockstack.network.connection import WSConnection
 
 
 class Packet:
@@ -15,8 +13,6 @@ class Packet:
 
 
 class PacketR(Packet):
-    REQUIRE_PRIVILEGE = Privilege.ALL
-
     def __init__(self, connection: "WSConnection", t, d):
         self._connection = connection
         self._t = t

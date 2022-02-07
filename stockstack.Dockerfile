@@ -20,11 +20,9 @@ RUN cat ./config/stockstack_sudoers | (EDITOR="tee -a" visudo)
 
 USER stockstack
 
-COPY stockstacker/ /app/stockstacker/
-COPY stocksheet/ /app/stocksheet/
+COPY stockstack/ /app/stockstack/
 
 RUN rm --force /etc/nginx/sites-enabled/default || true \
-    && cp ./config/nginx_server.conf /etc/nginx/sites-enabled/nginx_server.conf \
-    && mkdir --parents /run/stockstack/stocksheet
+    && cp ./config/nginx_stockstack.conf /etc/nginx/sites-enabled/nginx_stockstack.conf
 
-CMD python -m stockstacker l
+CMD python -m stockstack

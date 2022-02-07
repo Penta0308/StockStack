@@ -4,8 +4,6 @@ import json
 class Settings:
     _settings = None
 
-    maincontext = None
-
     logger = None
 
     @staticmethod

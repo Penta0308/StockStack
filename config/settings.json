@@ -5,5 +5,10 @@
     "dbname": "stockstack",
     "user": "stockstack",
     "password": "stockstack"
+  },
+  "stockstack": {
+    "schema": "market",
+    "wssocket": "/run/stockstack/stockstack_ws",
+    "tickT": 0.03
   }
 }

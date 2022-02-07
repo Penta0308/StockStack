@@ -2,23 +2,24 @@ import logging
 import multiprocessing
 import sys
 
-from stocksheet.network.gateway import Gateway
-from stocksheet.settings import Settings
+from stockstack.network.gateway import Gateway
+from stockstack.settings import Settings
+from stockstack.world.market import Market
 
 
-def run(name, socket):
+def run():
     if Settings.logger is None:
         Settings.logger = multiprocessing.get_logger()
     Settings.load()
 
-    gateway = Gateway(name, Settings.get()["database"], socket)
+    market = Market(Settings.get()["database"])
+    market.run()
 
-    Settings.maincontext = globals()
+    gateway = Gateway(market.dbinfo, Settings.get()["stockstack"]["wssocket"])
 
     gateway.run()  # blocking
-
 
 if __name__ == "__main__":
     Settings.logger = logging.getLogger()
     Settings.logger.setLevel(logging.DEBUG)
-    run(sys.argv[1], sys.argv[2])
+    run()

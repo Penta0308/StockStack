@@ -1,11 +1,10 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 import numpy as np
-
-from stocksheet.entity.brain import BRAINS
+import psycopg
 
 if TYPE_CHECKING:
-    from stocksheet.world.market import Market
+    from stockstack.world.market import Market
 
 
 class Trader:
@@ -18,13 +17,13 @@ class Trader:
 
     @staticmethod
     async def create(
-            market: "Market",
+            curfactory: Callable[[], psycopg.AsyncCursor],
             traderident: int,
             name: str,
             btype: str = None,
             bcoef: np.ndarray | None = None,
     ):
-        async with market.cursor() as cur:
+        async with curfactory() as cur:
             await cur.execute(
                 """INSERT INTO traders (tid, name, btype) VALUES (%s, %s, %s) RETURNING tid""",
                 (traderident, name, btype),
@@ -32,8 +31,9 @@ class Trader:
             return (await cur.fetchone())[0]
 
     @staticmethod
-    async def searchall(market: "Market"):
-        async with market.cursor() as cur:
+    async def searchall(
+            curfactory: Callable[[], psycopg.AsyncCursor], ):
+        async with curfactory() as cur:
             await cur.execute("""SELECT tid FROM traders""")
             return await cur.fetchall()
 

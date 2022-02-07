@@ -1,17 +1,3 @@
-CREATE TABLE IF NOT EXISTS apiusers
-(
-    uid       SERIAL PRIMARY KEY,
-    trader    TEXT    DEFAULT NULL,
-    privilege BIT(64) DEFAULT 0::BIT(64) NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS apikeys
-(
-    uid       INT REFERENCES apiusers (uid),
-    apikey    CHAR(86) PRIMARY KEY,
-    ratelimit INT DEFAULT -1 NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS stocks
 (
     ticker       TEXT PRIMARY KEY,
@@ -27,14 +13,13 @@ CREATE TABLE IF NOT EXISTS stocks
 
 CREATE TABLE IF NOT EXISTS traders
 (
-    tid   SERIAL PRIMARY KEY,
-    name  TEXT UNIQUE NOT NULL,
-    btype TEXT DEFAULT NULL
+    tid  BIGINT PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS stockowns
 (
-    tid    INT REFERENCES traders (tid),
+    tid    BIGINT REFERENCES traders (tid),
     ticker TEXT REFERENCES stocks (ticker),
     amount INT DEFAULT 0 NOT NULL
 );

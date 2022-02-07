@@ -1,11 +1,12 @@
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Callable
 
 import numpy as np
+import psycopg
 
-from stocksheet.world.order import OrderDirection, Order
+from stockstack.world.order import OrderDirection, Order
 
 if TYPE_CHECKING:
-    from stocksheet.world.market import Market
+    from stockstack.world.market import Market
 
 
 class Stock:
@@ -33,7 +34,7 @@ class Stock:
 
     @staticmethod
     async def create(
-            market: "Market",
+            curfactory: Callable[[], psycopg.AsyncCursor],
             ticker: str,
             name: str,
             parvalue: int | float = 5000,
@@ -41,7 +42,7 @@ class Stock:
     ):
         if price is None:
             price = parvalue
-        async with market.cursor() as cur:
+        async with curfactory() as cur:
             await cur.execute(
                 """INSERT INTO stocks (ticker, name, parvalue, closingprice) VALUES (%s, %s, %s, %s) RETURNING ticker""",
                 (ticker, name, parvalue, price),
@@ -49,8 +50,9 @@ class Stock:
             return (await cur.fetchone())[0]
 
     @staticmethod
-    async def searchall(market: "Market"):
-        async with market.cursor() as cur:
+    async def searchall(
+            curfactory: Callable[[], psycopg.AsyncCursor], ):
+        async with curfactory() as cur:
             await cur.execute("""SELECT ARRAY(SELECT ticker FROM stocks)""")
             return (await cur.fetchone())[0]
 

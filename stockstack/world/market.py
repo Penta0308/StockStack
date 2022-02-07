@@ -1,13 +1,16 @@
+import asyncio
 from functools import wraps
+from threading import Thread
 from typing import Dict, Union, List, Tuple, Callable, Optional
 import math
 
+import aiofiles
 import psycopg
+from psycopg import sql
 
-from stocksheet.settings import Settings
-from stocksheet.world.order import OrderDirection, OrderBuy, OrderSell
-from stocksheet.world.stock import Stock
-from stocksheet.entity.trader import Trader
+from stockstack.settings import Settings
+from stockstack.world.stock import Stock
+from stockstack.entity.trader import Trader
 
 
 class MarketOpenedError(Exception):
@@ -22,7 +25,40 @@ class StockPriceLimitError(Exception):
     pass
 
 
-class Market:
+class Market(Thread):
+    def __init__(self, dbinfo: dict):
+        super().__init__()
+        self.__traders: Dict[int, Trader] = dict()
+        self.__stocks: Dict[str, Stock] = dict()
+        self._is_open: bool = False
+        self._timestamp = 0
+        self.dbinfo = dbinfo
+        self.__dbconn: Optional[psycopg.AsyncConnection] = None
+
+        self._price_stepsize_f = Market.PriceStepsizeFEval()  # Initial... won't work
+        self._variancerate = 0.001  # too
+
+        self.__tickT = 1.0
+
+    def run(self):
+        Settings.logger.debug(f"Market Starting")
+        asyncio.run(self._run(), debug=True)
+
+    async def _run(self):
+        await self.init()
+        i = 0
+        while True:
+            i = await self.tick(i)
+            await asyncio.sleep(self.__tickT)
+
+    async def tick(self, i):
+        if i == 0:
+            await self.open()
+        if i == 299:
+            await self.close()
+            return 0
+        return i + 1
+
     class PriceStepsizeFEval:
         _pricerange: Union[List[int], List[float]]
         _steps: Union[List[int], List[float]]
@@ -86,6 +122,31 @@ class Market:
         return wrapper
 
     async def init(self):
+        schema = Settings.get()["stockstack"]["schema"]
+        self.__tickT = Settings.get()["stockstack"]["tickT"]
+        async with await psycopg.AsyncConnection.connect(
+                **self.dbinfo, autocommit=False
+        ) as dbconn:
+            async with dbconn.cursor() as cur:
+                await cur.execute(
+                    sql.SQL("""CREATE SCHEMA IF NOT EXISTS {schemaname}""").format(
+                        schemaname=sql.Identifier(schema)
+                    ),
+                    prepare=False,
+                )
+                await cur.execute(
+                    """SELECT set_config('search_path', %s, false)""",
+                    (schema,),
+                    prepare=False,
+                )
+
+                async with aiofiles.open(
+                        "stocksheet/schema_init.sql", encoding="UTF-8"
+                ) as f:
+                    await cur.execute(await f.read(), prepare=False)
+
+        self.dbinfo["options"] = f"-c search_path={schema}"
+
         self.__dbconn = await psycopg.AsyncConnection.connect(
             **self.dbinfo, autocommit=True
         )
@@ -93,26 +154,19 @@ class Market:
     def cursor(self, name: str = "") -> psycopg.AsyncCursor | psycopg.AsyncServerCursor:
         return self.__dbconn.cursor(name)
 
-    def __init__(self, dbinfo: dict):
-        self.__traders: Dict[int, Trader] = dict()
-        self.__stocks: Dict[str, Stock] = dict()
-        self._is_open: bool = False
-        self._timestamp = 0
-        self.dbinfo = dbinfo
-        self.__dbconn: Optional[psycopg.AsyncConnection] = None
-
-        self._price_stepsize_f = Market.PriceStepsizeFEval()  # Initial... won't work
-        self._variancerate = 0.001  # too
-
-    async def config_read(self, key: str) -> str:
-        async with self.__dbconn.cursor() as cur:
+    @staticmethod
+    async def config_read(
+            curfactory: Callable[[], psycopg.AsyncCursor], key: str) -> str:
+        async with curfactory() as cur:
             await cur.execute(
                 """SELECT value from config WHERE key = %s""", (key,), prepare=True
             )
             return (await cur.fetchone())[0]
 
-    async def config_write(self, key: str, value: str, update: bool = True) -> None:
-        async with self.__dbconn.cursor() as cur:
+    @staticmethod
+    async def config_write(
+            curfactory: Callable[[], psycopg.AsyncCursor], key: str, value: str, update: bool = True) -> None:
+        async with curfactory() as cur:
             if update:
                 await cur.execute(
                     """INSERT INTO config (key, value) VALUES (%s, %s) ON CONFLICT DO UPDATE SET (key, value) = (excluded.key, excluded.value)""",
@@ -135,15 +189,15 @@ class Market:
 
         Settings.logger.info("Market opening")
 
-        self._variancerate = float(await self.config_read("market_variancerate_float"))
+        self._variancerate = float(await Market.config_read(self.cursor, "market_variancerate_float"))
         self._price_stepsize_f.compile(
-            await self.config_read("market_pricestepsize_fe")
+            await Market.config_read(self.cursor, "market_pricestepsize_fe")
         )
 
-        for ticker in await Stock.searchall(self):
+        for ticker in await Stock.searchall(self.cursor):
             await self.stock_load(ticker)
 
-        for tid in await Trader.searchall(self):
+        for tid in await Trader.searchall(self.cursor):
             await self.trader_load(tid)
 
         for stock in self.__stocks.values():
@@ -206,7 +260,7 @@ class Market:
         """
         return self.__stocks[ticker]
 
-    @openedonly
+    '''@openedonly
     async def order_put(
             self,
             traderident: int,
@@ -239,4 +293,4 @@ class Market:
         self._timestamp += 1
         stock.order_put(order)
         order.activate()
-        return order
+        return order'''
