@@ -3,6 +3,17 @@ import re
 import subprocess
 from glob import glob
 
+NGINXPROXY_TEMPLATE = \
+    """\
+    location = /market/{name}/ws {{
+        proxy_pass http://unix:{sock};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Origin "";
+    }}\
+    """
+
 
 def proxy_create(x, p=None):
     """
@@ -15,14 +26,7 @@ def proxy_create(x, p=None):
 
     with open(f"/app/data/nginxproxy/{x}.conf", "w") as f:
         # noinspection HttpUrlsUsage
-        f.write(
-            """location = /market/{name}/ws {{
-                proxy_pass http://unix:{sock};
-                proxy_http_version 1.1;
-                proxy_set_header Upgrade $http_upgrade;
-                proxy_set_header Connection "Upgrade";
-                proxy_set_header Origin "";
-            }}""".format(name=x, sock=p))
+        f.write(NGINXPROXY_TEMPLATE.format(name=x, sock=p))
     return p
 
 
