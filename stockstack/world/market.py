@@ -141,7 +141,7 @@ class Market(Thread):
                 )
 
                 async with aiofiles.open(
-                        "stocksheet/schema_init.sql", encoding="UTF-8"
+                        "stockstack/market_init.sql", encoding="UTF-8"
                 ) as f:
                     await cur.execute(await f.read(), prepare=False)
 

@@ -22,7 +22,8 @@ USER stockstack
 
 COPY stockstack/ /app/stockstack/
 
+COPY ./config/nginx_stockstack.conf /app/config/nginx_stockstack.conf
 RUN rm --force /etc/nginx/sites-enabled/default || true \
     && cp ./config/nginx_stockstack.conf /etc/nginx/sites-enabled/nginx_stockstack.conf
 
-CMD python -m stockstack
+CMD sh ./stockstack/run.sh

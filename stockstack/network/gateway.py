@@ -8,7 +8,7 @@ import websockets
 from stockstack.network.connection import WSConnection
 
 # noinspection PyUnresolvedReferences
-from stockstack.network.packets import login, internalerror, systemadmin, marketadmin
+from stockstack.network.packets import internalerror, marketadmin, marketview
 from stockstack.settings import Settings
 
 

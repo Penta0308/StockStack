@@ -3,9 +3,6 @@ from typing import TYPE_CHECKING, Callable
 import numpy as np
 import psycopg
 
-if TYPE_CHECKING:
-    from stockstack.world.market import Market
-
 
 class Trader:
     def __init__(self, market, traderident: int):
