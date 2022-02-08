@@ -3,105 +3,72 @@ from typing import TYPE_CHECKING
 from abc import abstractmethod
 from enum import Enum
 
+from stockstack.settings import Settings
+
 if TYPE_CHECKING:
     from market import Market
 
 
-class NotEnoughMoneyError(Exception):
-    pass
-
-
-class OrderDirection(Enum):
-    Sell = 1
-    Buy = 2
-
-
 class Order:
-    def __init__(
-            self,
-            market: "Market",
-            traderident: typing.Hashable,
-            ticker,
-            price,
-            count,
-            timestamp,
-    ):
-        self.market = market
-        self.traderident = traderident
-        self.ticker = ticker
-        self.direction = None
-        self.price = price
-        self.count = count
-        self.timestamp = timestamp
-        self.__active = False
-
-    def activate(self):
-        if self.count > 0:
-            self.__active = True
-
-    @abstractmethod
-    def trade(self, price, count):
+    @staticmethod
+    async def tick(curfactory):
+        # Settings.logger.debug("Order tick")
         pass
 
-    @abstractmethod
-    def close(self):
-        pass
 
-    def is_active(self):
-        return (self.count > 0) and self.__active
+"""    def order_process(self):
+        self.sellorders.sort(key=self.sellpriorityfunc)
+        self.buyorders.sort(key=self.buypriorityfunc)
 
-    def is_end(self):
-        return self.count == 0
+        for so in self.sellorders:
+            if so.price is None:
+                for bo in self.buyorders:
+                    accprice = self.curprice if bo.price is None else bo.price
+                    tracount = min(bo.count, so.count)
+                    if tracount > 0:
+                        so.trade(accprice, tracount)
+                        bo.trade(accprice, tracount)
+                        self.update_curprice(accprice)
+                    if not so.is_active():
+                        break
+            else:
+                for bo in self.buyorders:
+                    if bo.price is None:
+                        accprice = so.price
+                        tracount = min(bo.count, so.count)
+                        if tracount > 0:
+                            so.trade(accprice, tracount)
+                            bo.trade(accprice, tracount)
+                            self.update_curprice(accprice)
+                    else:
+                        if so.price <= bo.price:
+                            accprice = (
+                                so.price if so.timestamp < bo.timestamp else bo.price
+                            )
+                            tracount = min(bo.count, so.count)
+                            if tracount > 0:
+                                so.trade(accprice, tracount)
+                                bo.trade(accprice, tracount)
+                                self.update_curprice(accprice)
+                    if not so.is_active():
+                        break
 
+        sellorders: List[Order] = list()
+        buyorders: List[Order] = list()
 
-class OrderBuy(Order):
-    def __init__(self, market, traderident, ticker, price, count, timestamp):
-        super().__init__(market, traderident, ticker, price, count, timestamp)
-        self.direction = OrderDirection.Buy
-        self.holding_amount = 0
+        while len(self.sellorders) > 0:
+            i = self.sellorders.pop()
+            if i.is_end():
+                i.close()
+            else:
+                sellorders.append(i)
 
-    def activate(self):
-        trader = self.market.trader_get(self.traderident)
-        self.holding_amount = self._holding_per_1_calc()
-        trader.wallet_cash_hold(self.holding_amount * self.count)
-        super().activate()
+        while len(self.buyorders) > 0:
+            i = self.buyorders.pop()
+            if i.is_end():
+                i.close()
+            else:
+                buyorders.append(i)
 
-    def _holding_per_1_calc(self):
-        if self.price is None:
-            return self.market.stock_get(self.ticker).upplimit
-        else:
-            return self.price
-
-    def trade(self, price, count):
-        self.count -= count
-        trader = self.market.trader_get(self.traderident)
-        trader.wallet_hold_take(count * price)
-        trader.wallet_hold_release(count * (self.holding_amount - price))
-        trader.stock_cash_give(self.ticker, count)
-
-    def close(self):
-        self.market.trader_get(self.traderident).wallet_hold_release(
-            self.count * self.holding_amount
-        )
-
-
-class OrderSell(Order):
-    def __init__(self, market, traderident, ticker, price, count, timestamp):
-        super().__init__(market, traderident, ticker, price, count, timestamp)
-        self.direction = OrderDirection.Sell
-
-    def activate(self):
-        trader = self.market.trader_get(self.traderident)
-        trader.stock_cash_hold(self.ticker, self.count)
-        super().activate()
-
-    def trade(self, price, count):
-        self.count -= count
-        trader = self.market.trader_get(self.traderident)
-        trader.stock_hold_take(self.ticker, count)
-        trader.wallet_give(count * price)
-
-    def close(self):
-        self.market.trader_get(self.traderident).stock_hold_release(
-            self.ticker, self.count
-        )
+        self.sellorders = sellorders
+        self.buyorders = buyorders"""

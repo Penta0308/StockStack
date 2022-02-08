@@ -2,8 +2,8 @@ from typing import TYPE_CHECKING
 
 from stockstack.entity.trader import Trader
 from stockstack.network.packets import PACKETS, PacketR, PacketT
+from stockstack.world.company import Company
 from stockstack.world.market import Market
-from stockstack.world.stock import Stock
 
 if TYPE_CHECKING:
     from stockstack.network.connection import WSConnection
@@ -15,12 +15,12 @@ class MarketConfAct(PacketR):
         super().__init__(connection, t, d)
 
     async def process(self):
-        k = self._d["k"]
-        v = self._d["v"]
+        key = self._d["key"]
+        value = self._d["value"]
 
-        await Market.config_write(self._connection.gateway.cursor, k, v)
+        await Market.config_write(self._connection.gateway.cursor, key, value)
 
-        d = {"k": k, "v": v}
+        d = {"kkey": key, "value": value}
 
         await MarketConfResp(self._connection, self._t, d).process()
 
@@ -31,25 +31,23 @@ class MarketConfResp(PacketT):
 
 
 @PACKETS.register(10)
-class StockCreateAct(PacketR):
+class CompanyCreateAct(PacketR):
     def __init__(self, connection: "WSConnection", t, d):
         super().__init__(connection, t, d)
 
     async def process(self):
-        t = self._d["t"]
-        n = self._d["n"]
-        p = self._d["p"]
-        r = self._d["r"]
+        name = self._d["name"]
+        worktype = self._d["worktype"]
 
-        await Stock.create(self._connection.gateway.cursor, t, n, p, r)
+        cid = await Company.create(self._connection.gateway.cursor, name, worktype)
 
-        d = {"t": t, "n": n}
+        d = {"cid": cid}
 
-        await StockCreateResp(self._connection, self._t, d).process()
+        await CompanyCreateResp(self._connection, self._t, d).process()
 
 
 @PACKETS.register(11)
-class StockCreateResp(PacketT):
+class CompanyCreateResp(PacketT):
     pass
 
 
@@ -59,12 +57,12 @@ class TraderCreateAct(PacketR):
         super().__init__(connection, t, d)
 
     async def process(self):
-        t = self._d["t"]
-        n = self._d["n"]
+        tid = self._d["tid"]
+        name = self._d["name"]
 
-        await Trader.create(self._connection.gateway.cursor, t, n)
+        await Trader.create(self._connection.gateway.cursor, tid, name)
 
-        d = {"t": t, "n": n}
+        d = {"tid": tid}
 
         await TraderCreateResp(self._connection, self._t, d).process()
 

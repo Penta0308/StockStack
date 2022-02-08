@@ -36,7 +36,7 @@ class PacketT(Packet):
         j = {"op": self.__class__.OPCODE, "d": self._d}
         if self._t is not None:
             j["t"] = self._t
-        await self._connection.send(json.dumps(j))
+        await self._connection.send(json.dumps(j, ensure_ascii=False))
 
 
 class PACKETS:

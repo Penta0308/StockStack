@@ -8,7 +8,6 @@
   },
   "stockstack": {
     "schema": "market",
-    "wssocket": "/run/stockstack/stockstack_ws",
-    "tickT": 0.03
+    "wssocket": "/run/stockstack/stockstack_ws"
   }
 }

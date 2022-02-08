@@ -1,7 +1,7 @@
 import asyncio
-from functools import wraps
+import enum
 from threading import Thread
-from typing import Dict, Union, List, Tuple, Callable, Optional
+from typing import Union, List, Tuple, Callable, Optional
 import math
 
 import aiofiles
@@ -9,36 +9,23 @@ import psycopg
 from psycopg import sql
 
 from stockstack.settings import Settings
-from stockstack.world.stock import Stock
-from stockstack.entity.trader import Trader
-
-
-class MarketOpenedError(Exception):
-    pass
-
-
-class MarketClosedError(Exception):
-    pass
-
-
-class StockPriceLimitError(Exception):
-    pass
+from stockstack.world.company import Company
+from stockstack.world.order import Order
 
 
 class Market(Thread):
+    class State(enum.IntEnum):
+        CLOSE = 0
+        EQUIVCALL = 1
+        OPEN = 2
+
     def __init__(self, dbinfo: dict):
         super().__init__()
-        self.__traders: Dict[int, Trader] = dict()
-        self.__stocks: Dict[str, Stock] = dict()
-        self._is_open: bool = False
-        self._timestamp = 0
         self.dbinfo = dbinfo
         self.__dbconn: Optional[psycopg.AsyncConnection] = None
 
         self._price_stepsize_f = Market.PriceStepsizeFEval()  # Initial... won't work
         self._variancerate = 0.001  # too
-
-        self.__tickT = 1.0
 
     def run(self):
         Settings.logger.debug(f"Market Starting")
@@ -46,18 +33,31 @@ class Market(Thread):
 
     async def _run(self):
         await self.init()
-        i = 0
         while True:
-            i = await self.tick(i)
-            await asyncio.sleep(self.__tickT)
+            i = int(await self.config_read(self.cursor, 'market_tickn'))
+            i, d = await self.tick(i)
+            await self.config_write(self.cursor, 'market_tickn', str(i), update=True)
+            await asyncio.sleep(d)
 
-    async def tick(self, i):
-        if i == 0:
-            await self.open()
-        if i == 299:
-            await self.close()
-            return 0
-        return i + 1
+    async def tick(self, i) -> (int, float):
+        if i == 0:  # 장전동시호가 3초
+            return i + 1, 1
+        if 0 < i < 29:  # 낮 1초 * 많이
+            if i == 1:  # 낮 첫 틱
+                await Order.tick(self.cursor)  # 장전동시호가 주문처리
+                pass
+            else:
+                await Order.tick(self.cursor)  # 낮 틱 주문처리
+            return i + 1, 0.03
+        if i == 29:  # 장후동시호가 3초
+            await Order.tick(self.cursor)  # 낮 마지막 틱 주문처리
+            return i + 1, 1
+        if i >= 30:  # 밤 3초
+            if i == 30:  # 밤 첫 틱
+                await Order.tick(self.cursor)  # 장후동시호가 주문처리
+                await Company.tick(self.cursor)  # 회사의 시간
+            return 0, 3
+        return 0, 1
 
     class PriceStepsizeFEval:
         _pricerange: Union[List[int], List[float]]
@@ -99,33 +99,10 @@ class Market(Thread):
             ),
         )
 
-    @staticmethod
-    def closedonly(f):
-        @wraps(f)
-        async def wrapper(self: "Market", *args, **kwargs):
-            if self._is_open:
-                raise MarketOpenedError
-            else:
-                return await f(self, *args, **kwargs)
-
-        return wrapper
-
-    @staticmethod
-    def openedonly(f):
-        @wraps(f)
-        async def wrapper(self: "Market", *args, **kwargs):
-            if not self._is_open:
-                raise MarketOpenedError
-            else:
-                return await f(self, *args, **kwargs)
-
-        return wrapper
-
     async def init(self):
         schema = Settings.get()["stockstack"]["schema"]
-        self.__tickT = Settings.get()["stockstack"]["tickT"]
         async with await psycopg.AsyncConnection.connect(
-                **self.dbinfo, autocommit=False
+                **self.dbinfo, autocommit=True
         ) as dbconn:
             async with dbconn.cursor() as cur:
                 await cur.execute(
@@ -151,6 +128,11 @@ class Market(Thread):
             **self.dbinfo, autocommit=True
         )
 
+        self._variancerate = float(await Market.config_read(self.cursor, "market_variancerate_float"))
+        self._price_stepsize_f.compile(
+            await Market.config_read(self.cursor, "market_pricestepsize_fe")
+        )
+
     def cursor(self, name: str = "") -> psycopg.AsyncCursor | psycopg.AsyncServerCursor:
         return self.__dbconn.cursor(name)
 
@@ -169,7 +151,7 @@ class Market(Thread):
         async with curfactory() as cur:
             if update:
                 await cur.execute(
-                    """INSERT INTO config (key, value) VALUES (%s, %s) ON CONFLICT DO UPDATE SET (key, value) = (excluded.key, excluded.value)""",
+                    """INSERT INTO config (key, value) VALUES (%s, %s) ON CONFLICT (key) DO UPDATE SET (key, value) = (excluded.key, excluded.value)""",
                     (key, value),
                     prepare=True,
                 )
@@ -180,117 +162,3 @@ class Market(Thread):
                     prepare=True,
                 )
 
-    @closedonly
-    async def open(self) -> None:
-        """
-        Start a day.
-        :return:
-        """
-
-        Settings.logger.info("Market opening")
-
-        self._variancerate = float(await Market.config_read(self.cursor, "market_variancerate_float"))
-        self._price_stepsize_f.compile(
-            await Market.config_read(self.cursor, "market_pricestepsize_fe")
-        )
-
-        for ticker in await Stock.searchall(self.cursor):
-            await self.stock_load(ticker)
-
-        for tid in await Trader.searchall(self.cursor):
-            await self.trader_load(tid)
-
-        for stock in self.__stocks.values():
-            await stock.event_open()
-        self._is_open = True
-
-    @openedonly
-    async def close(self) -> None:
-        """
-        End a day.
-        :return:
-        """
-
-        Settings.logger.info("Market closing")
-
-        self._is_open = False
-        for stock in self.__stocks.values():
-            await stock.event_close()
-
-    async def trader_list(self):
-        return self.__traders
-
-    @closedonly
-    async def trader_load(self, ident: int) -> None:
-        t = self.__traders.get(ident)
-        if t is None:
-            t = Trader(self, ident)
-        await t.load()
-        self.__traders[ident] = t
-
-    async def trader_get(self, ident: int) -> Trader:
-        return self.__traders[ident]
-
-    async def stock_list(self):
-        """
-        Show the stocks.
-        :return:
-        """
-        return self.__stocks
-
-    @closedonly
-    async def stock_load(self, ticker: str) -> None:
-        """
-        When closed,
-        Add a stock.
-        :param ticker:
-        :return:
-        """
-        s = self.__stocks.get(ticker)
-        if s is None:
-            s = Stock(self, ticker)
-        await s.load()
-        self.__stocks[ticker] = s
-
-    async def stock_get(self, ticker: str) -> Stock:
-        """
-        Get a stock.
-        :param ticker:
-        :return:
-        """
-        return self.__stocks[ticker]
-
-    '''@openedonly
-    async def order_put(
-            self,
-            traderident: int,
-            ticker: str,
-            orderdirection: OrderDirection,
-            count: int,
-            price: Union[int, None] = None,
-    ) -> None:
-        """
-        Trader에서 order을 넣을 것.
-        :param traderident:
-        :param ticker:
-        :param orderdirection:
-        :param count:
-        :param price: 시장가 매매를 원할 시 None
-        :return:
-        """
-
-        stock = await self.stock_get(ticker)
-        price = self.price_round(price)
-
-        if not (stock.lowlimit <= price <= stock.upplimit):
-            raise StockPriceLimitError
-
-        order = None
-        if orderdirection == OrderDirection.Buy:
-            order = OrderBuy(self, traderident, ticker, count, price, self._timestamp)
-        elif orderdirection == OrderDirection.Sell:
-            order = OrderSell(self, traderident, ticker, count, price, self._timestamp)
-        self._timestamp += 1
-        stock.order_put(order)
-        order.activate()
-        return order'''
