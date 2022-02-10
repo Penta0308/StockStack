@@ -12,7 +12,7 @@ RUN useradd -d /app -s /bin/bash -G www-data stockstack \
     && mkdir --parents /run/stockstack \
     && chown -R stockstack /etc/nginx/sites-enabled/ /run/stockstack/ /var/log/nginx/
 
-COPY ./requirements.txt /app/requirements.txt
+COPY stockstack/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY ./config/stockstack_sudoers /app/config/stockstack_sudoers

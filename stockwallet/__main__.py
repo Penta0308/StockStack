@@ -1,4 +1,5 @@
 import json
+import asyncio
 import psycopg
 from psycopg import rows
 from aiohttp import web
@@ -40,7 +41,7 @@ async def on_startup(_):
         )
 
 
-@routes.view(r"wallet/{user_id:^[0-9]+$}")
+@routes.view(r"/wallet/{user_id:-?[\d]+}")
 class WalletView(web.View):
     @property
     def user_id(self):
@@ -59,18 +60,18 @@ class WalletView(web.View):
         data = await self.request.json()
         async with db.cursor() as cur:
             await cur.execute(
-                """UPDATE wallet.data SET money = money %s WHERE user_id = %s""",
+                """UPDATE wallet.data SET money = money + %s WHERE user_id = %s""",
                 (data["amount"], self.user_id), prepare=True
             )
             return await self.get()
 
     async def get(self):
         async with db.cursor() as cur:
-            cur.row_factory = rows.dict_row
             await cur.execute(
-                """SELECT * FROM wallet.data WHERE user_id = %s""", (self.user_id,), prepare=True
+                """SELECT money FROM wallet.data WHERE user_id = %s""", (self.user_id,), prepare=True
             )
-            return web.json_response(await cur.fetchone())
+            r = await cur.fetchone()
+            return web.json_response({'amount': None if r is None else r[0]})
 
 
 app.on_startup.append(on_startup)

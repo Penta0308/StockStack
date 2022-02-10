@@ -46,7 +46,10 @@ services:
       - .:/app:z
       - ./config:/app/config:z
     healthcheck:
-      test: [ "CMD-SHELL", "netstat -ltn | grep -c 9083" ]
+      test: [ "CMD-SHELL", 'bash -c "cat < /dev/null > /dev/tcp/127.0.0.1/5420"' ]
       interval: 5s
       timeout: 5s
-      retries: 20
+      retries: 10
+    depends_on:
+      db:
+        condition: service_healthy
