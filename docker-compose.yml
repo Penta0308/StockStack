@@ -1,4 +1,4 @@
-version: '2.1'
+version: '2.4'
 services:
   web:
     build:
@@ -8,10 +8,12 @@ services:
       - "5080:5080/tcp"
       - "5443:5443/tcp"
     volumes:
-      - .:/app
-      - ./config:/app/config:Z
+      - .:/app:z
+      - ./config:/app/config:z
     depends_on:
       db:
+        condition: service_healthy
+      wallet:
         condition: service_healthy
 
   db:
@@ -35,4 +37,16 @@ services:
   wallet:
     build:
       context: ./
-      dockerfile: jwallet.Dockerfile
+      dockerfile: stockwallet.Dockerfile
+    ports:
+      - "5420:5420/tcp"
+    expose:
+      - "5420/tcp"
+    volumes:
+      - .:/app:z
+      - ./config:/app/config:z
+    healthcheck:
+      test: [ "CMD-SHELL", "netstat -ltn | grep -c 9083" ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
