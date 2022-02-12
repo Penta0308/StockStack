@@ -30,7 +30,7 @@ def run():
     market = Market(Settings.get()["database"])
     market.start()
 
-    gateway = Gateway({**market.dbinfo, "options": f"-c search_path={Settings.get()['stockstack']['schema']}"},
+    gateway = Gateway(market.dbinfo,
                       Settings.get()["stockstack"]["wssocket"])
 
     gateway.run()  # blocking
@@ -38,7 +38,7 @@ def run():
 
 if __name__ == "__main__":
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     stderrLogger = logging.StreamHandler()
     stderrLogger.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
     logger.addHandler(stderrLogger)

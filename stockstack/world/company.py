@@ -1,41 +1,68 @@
-from typing import TYPE_CHECKING, List, Callable
+from typing import Callable
 
+import aiohttp as aiohttp
 import psycopg
 from psycopg import rows
 
 from stockstack.settings import Settings
 
-FACTORY_DESC = [
-    {"consume": [1, 0], "produce": [0, 0], "cost": -2000},  # 소비자
-    {"consume": [0, 1], "produce": [1, 0], "cost": 400},  # 식품기업
-    {"consume": [0, 0], "produce": [0, 1], "cost": 700}  # 농장
-]
-
-GOODS_DESC = [
-    {"priceperunit": 2000},  # 가공식품
-    {"priceperunit": 1000}  # 농산물
-]
+from stockstack.world.marketconfig import MarketConfig
 
 
 class Company:
     @staticmethod
+    async def _factory(curfactory: Callable[[], psycopg.AsyncCursor], worktype: int):
+        async with curfactory() as cur:
+            cur.row_factory = rows.dict_row
+            await cur.execute(
+                """SELECT consume, produce FROM world.factories WHERE worktype = %s""",
+                (worktype,))
+            return await cur.fetchone()
+
+    @staticmethod
+    async def _goods(curfactory: Callable[[], psycopg.AsyncCursor], gid: int):
+        async with curfactory() as cur:
+            cur.row_factory = rows.dict_row
+            await cur.execute(
+                """SELECT name, baseprice FROM world.goods WHERE gid = %s""",
+                (gid,))
+            return await cur.fetchone()
+
+    @staticmethod
+    async def _getsellprice(curfactory: Callable[[], psycopg.AsyncCursor], cid: int, gid: int) -> int:
+        async with curfactory() as cur:
+            await cur.execute(
+                """SELECT sellprice[%s] FROM market.companies WHERE cid = %s""",
+                (gid + 1, cid))
+            return (await cur.fetchone())[0]
+
+    @staticmethod
     async def tick(curfactory: Callable[[], psycopg.AsyncCursor]):
-        Settings.logger.debug("Company tick")
+        Settings.logger.info("Company tick")
+        async with curfactory() as cur:
+            await cur.execute("""UPDATE market.companies SET outventory = ARRAY(
+                SELECT a.elem * (SELECT 1 - decayrate FROM world.goods WHERE gid = a.nr - 1) FROM
+                                        unnest(outventory) WITH ORDINALITY AS a(elem, nr))""")
+
         for cid in await Company.searchall(curfactory):
             await Company._tick(curfactory, cid)
 
     @staticmethod
     async def _tick(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
+        if cid == 0:
+            await Company.deltamoney(0, await Company.getmoney(0) * float(
+                await MarketConfig.read(curfactory, 'market_interestrate')) / 365)
+
         c = await Company.getinfo(curfactory, cid)
 
-        f = FACTORY_DESC[c['worktype']]
+        f = await Company._factory(curfactory, c['worktype'])
 
         for n, a in enumerate(c['inventory']):
-            rq = int(c['factorysize'] * f['consume'][n] * 3.0 - a)
+            rq = c['factorysize'] * (f['consume'][n]) - a
             if rq > 0:
                 async with curfactory() as cur:
                     await cur.execute(
-                        """SELECT cid FROM companies WHERE inventory[%s] >= 1 ORDER BY inventory[%s] DESC""",
+                        """SELECT cid FROM market.companies WHERE outventory[%s] > 0 ORDER BY sellprice[%s] ASC""",
                         (n + 1, n + 1)
                     )
                     while rq > 0:
@@ -43,14 +70,15 @@ class Company:
                         if cti is None: break
                         cti = cti[0]
 
-                        ct = await Company.getinventory(curfactory, cti, n)
+                        ct = max(0, await Company.getoutventory(curfactory, cti, n))
                         ct = min(rq, ct)
-                        p = ct * GOODS_DESC[n]['priceperunit']
-                        Settings.logger.debug(f'Company {cid} Getting {n} {ct} from {cti} with {p}')
-                        await Company.deltainventory(curfactory, cti, n, -ct)
+                        up = await Company._getsellprice(curfactory, cti, n)
+                        p = up * ct
+                        Settings.logger.info(f'Company {cid} Getting [Goods n]x{ct} from {cti} by paying {up}/Unit')
+                        await Company.deltaoutventory(curfactory, cti, n, -ct)
                         await Company.deltainventory(curfactory, cid, n, +ct)
-                        await Company.deltamoney(curfactory, cti, +p)
-                        await Company.deltamoney(curfactory, cid, -p)
+                        await Company.deltamoney(cti, +p)
+                        await Company.deltamoney(cid, -p)
                         rq -= ct
 
         c = await Company.getinfo(curfactory, cid)
@@ -60,19 +88,21 @@ class Company:
             if q > 0:
                 _pu = a / q
                 pu = min(_pu, pu)
+        pu = max(pu, 0)
+        for n, a in enumerate(c['outventory']):
             if a > c['factorysize'] * f['produce'][n] * 4.0 and f['produce'][n] != 0:
                 pu = 0
 
-        await Company.deltamoney(curfactory, cid, -1 * pu * f['cost'])
+        pu = int(pu)
         for n, a in enumerate(f['consume']):
             if a * pu == 0: continue
             await Company.deltainventory(curfactory, cid, n, -1 * a * pu)
         for n, a in enumerate(f['produce']):
             if a * pu == 0: continue
-            await Company.deltainventory(curfactory, cid, n, +1 * a * pu)
-        Settings.logger.debug(f'Company {cid} Producing {pu}')
+            await Company.deltaoutventory(curfactory, cid, n, +1 * a * pu)
+        Settings.logger.info(f'Company {cid} Producing {pu}')
 
-        if c['cash'] <= 50000000:
+        if await Company.getmoney(cid) <= 50000000:
             pass  # TODO: 유상증자
         else:
             pass  # TODO: 성장
@@ -80,21 +110,29 @@ class Company:
     @staticmethod
     async def create(
             curfactory: Callable[[], psycopg.AsyncCursor],
-            name: str,
-            worktype: List[float],
+            name: str | None,
+            worktype: int | None,
+            factorysize: int = 0,
+            listable: bool = False
     ):
         async with curfactory() as cur:
             await cur.execute(
-                """INSERT INTO companies (name, worktype) VALUES (%s, %s) RETURNING cid""",
-                (name, worktype),
+                """INSERT INTO market.companies (name, worktype, factorysize, listable, sellprice) VALUES (%s, %s, %s, %s, 
+                        (SELECT ARRAY(SELECT baseprice FROM world.goods ORDER BY gid ASC))) RETURNING cid""",
+                (name, worktype, factorysize, listable),
             )
-            return (await cur.fetchone())[0]
+            cid = (await cur.fetchone())[0]
+
+        async with aiohttp.ClientSession() as session:
+            await session.put(f'http://wallet:{Settings.get()["stockwallet"]["web"]["port"]}/wallet/{cid}',
+                              data=f'{{"user_id": {cid}}}'.encode(encoding='UTF-8'))
+        return cid
 
     @staticmethod
     async def searchall(
             curfactory: Callable[[], psycopg.AsyncCursor], ):
         async with curfactory() as cur:
-            await cur.execute("""SELECT ARRAY(SELECT cid FROM companies)""")
+            await cur.execute("""SELECT ARRAY(SELECT cid FROM market.companies)""")
             return (await cur.fetchone())[0]
 
     @staticmethod
@@ -103,25 +141,48 @@ class Company:
         async with curfactory() as cur:
             cur.row_factory = rows.dict_row
             await cur.execute(
-                """SELECT cid, name, cash, worktype, factorysize, inventory FROM companies WHERE cid = %s""",
+                """SELECT cid, name, worktype, factorysize, inventory, outventory FROM market.companies WHERE cid = %s""",
                 (cid,))
             return await cur.fetchone()
 
     @staticmethod
-    async def deltamoney(curfactory, cid: int, amount: int):
-        async with curfactory() as cur:
-            await cur.execute("""UPDATE companies SET cash = cash + %s WHERE cid = %s""",
-                              (amount, cid))
+    async def deltamoney(cid: int, amount: int):
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f'http://wallet:{Settings.get()["stockwallet"]["web"]["port"]}/wallet/{cid}',
+                                    data=f'{{"amount": {amount} }}'.encode(encoding='UTF-8')) as resp:
+                j = await resp.json()
+                return j['amount']
+
+    @staticmethod
+    async def getmoney(cid: int):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                    f'http://wallet:{Settings.get()["stockwallet"]["web"]["port"]}/wallet/{cid}') as resp:
+                j = await resp.json()
+                return j['amount']
 
     @staticmethod
     async def deltainventory(curfactory, cid: int, what: int, amount: int):
         async with curfactory() as cur:
-            await cur.execute("""UPDATE companies SET inventory[%s] = inventory[%s] + %s WHERE cid = %s""",
+            await cur.execute("""UPDATE market.companies SET inventory[%s] = inventory[%s] + %s WHERE cid = %s""",
                               (what + 1, what + 1, amount, cid))
 
     @staticmethod
     async def getinventory(curfactory, cid: int, what: int):
         async with curfactory() as cur:
-            await cur.execute("""SELECT inventory[%s] FROM companies WHERE cid = %s""",
+            await cur.execute("""SELECT inventory[%s] FROM market.companies WHERE cid = %s""",
+                              (what + 1, cid))
+            return (await cur.fetchone())[0]
+
+    @staticmethod
+    async def deltaoutventory(curfactory, cid: int, what: int, amount: int):
+        async with curfactory() as cur:
+            await cur.execute("""UPDATE market.companies SET outventory[%s] = outventory[%s] + %s WHERE cid = %s""",
+                              (what + 1, what + 1, amount, cid))
+
+    @staticmethod
+    async def getoutventory(curfactory, cid: int, what: int):
+        async with curfactory() as cur:
+            await cur.execute("""SELECT outventory[%s] FROM market.companies WHERE cid = %s""",
                               (what + 1, cid))
             return (await cur.fetchone())[0]

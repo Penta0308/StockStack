@@ -4,6 +4,7 @@ from stockstack.entity.trader import Trader
 from stockstack.network.packets import PACKETS, PacketR, PacketT
 from stockstack.world.company import Company
 from stockstack.world.market import Market
+from stockstack.world.marketconfig import MarketConfig
 
 if TYPE_CHECKING:
     from stockstack.network.connection import WSConnection
@@ -18,7 +19,7 @@ class MarketConfAct(PacketR):
         key = self._d["key"]
         value = self._d["value"]
 
-        await Market.config_write(self._connection.gateway.cursor, key, value)
+        await MarketConfig.write(self._connection.gateway.cursor, key, value)
 
         d = {"kkey": key, "value": value}
 

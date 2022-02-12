@@ -21,7 +21,7 @@ class Stock:
             price = parvalue
         async with curfactory() as cur:
             await cur.execute(
-                """INSERT INTO stocks (ticker, parvalue, closingprice) VALUES (%s, %s, %s) RETURNING ticker""",
+                """INSERT INTO market.stocks (ticker, parvalue, closingprice) VALUES (%s, %s, %s) RETURNING ticker""",
                 (ticker, name, parvalue, price),
             )
             return (await cur.fetchone())[0]
@@ -30,7 +30,7 @@ class Stock:
     async def searchall(
             curfactory: Callable[[], psycopg.AsyncCursor], ):
         async with curfactory() as cur:
-            await cur.execute("""SELECT ARRAY(SELECT ticker FROM stocks)""")
+            await cur.execute("""SELECT ARRAY(SELECT ticker FROM market.stocks)""")
             return (await cur.fetchone())[0]
 
     @staticmethod
@@ -39,7 +39,7 @@ class Stock:
         async with curfactory() as cur:
             cur.row_factory = rows.dict_row
             await cur.execute(
-                """SELECT ticker, cid, totalamount, parvalue, closingprice FROM stocks WHERE ticker = %s""",
+                """SELECT ticker, cid, totalamount, parvalue, closingprice FROM market.stocks WHERE ticker = %s""",
                 (ticker,))
             return await cur.fetchone()
 
