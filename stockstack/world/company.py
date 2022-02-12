@@ -74,7 +74,7 @@ class Company:
                         ct = min(rq, ct)
                         up = await Company._getsellprice(curfactory, cti, n)
                         p = up * ct
-                        Settings.logger.info(f'Company {cid} Getting [Goods n]x{ct} from {cti} by paying {up}/Unit')
+                        Settings.logger.info(f'Company {cid} Getting [Goods {n}]x{ct} from {cti} by paying {up}/Unit')
                         await Company.deltaoutventory(curfactory, cti, n, -ct)
                         await Company.deltainventory(curfactory, cid, n, +ct)
                         await Company.deltamoney(cti, +p)
