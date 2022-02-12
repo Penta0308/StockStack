@@ -35,7 +35,7 @@ async def on_startup(_):
         )
         await cur.execute(
             """CREATE TABLE IF NOT EXISTS wallet.data (
-            user_id BIGINT NOT NULL,
+            user_id BIGINT PRIMARY KEY,
             money BIGINT NOT NULL DEFAULT 0
             )"""
         )
@@ -55,6 +55,7 @@ class WalletView(web.View):
                 """INSERT INTO wallet.data VALUES (%s, %s)""",
                 (self.user_id, 0 if bm is None else bm),
             )
+            return await self.get()
 
     async def post(self):
         data = await self.request.json()
