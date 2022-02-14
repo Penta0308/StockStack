@@ -1,19 +1,51 @@
 version: '2.4'
 services:
-  web:
+  gateway:
     build:
       context: ./
-      dockerfile: stockstack.Dockerfile
+      dockerfile: gateway.Dockerfile
     ports:
       - "5080:5080/tcp"
       - "5443:5443/tcp"
+    depends_on:
+      stockstackfe:
+        condition: service_healthy
+      stockwallet:
+        condition: service_healthy
+
+  stockstackfe:
+    build:
+      context: ./
+      dockerfile: stockstackfe.Dockerfile
+    ports:
+      - "5081:5081/tcp"
+    expose:
+      - "5081/tcp"
     volumes:
-      - .:/app:z
+      - ./stockstackfe:/app/stockstackfe:z
+      - ./config:/app/config:z
+    healthcheck:
+      test: [ "CMD-SHELL", 'bash -c "cat < /dev/null > /dev/tcp/127.0.0.1/5081"' ]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+    depends_on:
+      db:
+        condition: service_healthy
+
+  stockstack:
+    build:
+      context: ./
+      dockerfile: stockstack.Dockerfile
+    volumes:
+      - ./stockstack:/app/stockstack:z
       - ./config:/app/config:z
     depends_on:
       db:
         condition: service_healthy
-      wallet:
+      stockwallet:
+        condition: service_healthy
+      stockstackfe:
         condition: service_healthy
 
   db:
@@ -34,21 +66,21 @@ services:
       POSTGRES_PASSWORD: stockstack
       POSTGRES_DB: stockstack
 
-  wallet:
+  stockwallet:
     build:
       context: ./
       dockerfile: stockwallet.Dockerfile
     ports:
-      - "5420:5420/tcp"
+      - "5082:5082/tcp"
     expose:
-      - "5420/tcp"
+      - "5082/tcp"
     volumes:
-      - .:/app:z
+      - ./stockwallet:/app/stockwallet:z
       - ./config:/app/config:z
     healthcheck:
-      test: [ "CMD-SHELL", 'bash -c "cat < /dev/null > /dev/tcp/127.0.0.1/5420"' ]
-      interval: 5s
-      timeout: 5s
+      test: [ "CMD-SHELL", 'bash -c "cat < /dev/null > /dev/tcp/127.0.0.1/5082"' ]
+      interval: 2s
+      timeout: 2s
       retries: 10
     depends_on:
       db:

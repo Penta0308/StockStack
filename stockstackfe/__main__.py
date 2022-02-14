@@ -1,5 +1,8 @@
+import logging
 import json
 import asyncio
+
+import aiofiles
 import psycopg
 from psycopg import rows
 from aiohttp import web
@@ -27,29 +30,30 @@ db: psycopg.AsyncConnection
 
 
 async def on_startup(_):
-    global db
-    db = await psycopg.AsyncConnection.connect(**(Settings.get()['database']), autocommit=True)
-    async with db.cursor() as cur:
-        await cur.execute(
-            """CREATE SCHEMA IF NOT EXISTS wallet"""
-        )
-        await cur.execute(
-            """CREATE TABLE IF NOT EXISTS wallet.data (
-            user_id BIGINT PRIMARY KEY,
-            money BIGINT NOT NULL DEFAULT 0
-            )"""
-        )
+    global logger
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    stderrlogger = logging.StreamHandler()
+    stderrlogger.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
+    logger.addHandler(stderrlogger)
+
+    global dbconn
+    dbconn = await psycopg.AsyncConnection.connect(**(Settings.get()['database']), autocommit=True)
+    async with dbconn.cursor() as cur:
+        async with aiofiles.open("stockstackfe/stockstack_init.sql", encoding="UTF-8") as f:
+            await cur.execute(await f.read(), prepare=False)
 
 
-@routes.view(r"/{user_id:-?[\d]+}")
-class WalletView(web.View):
+@routes.view(r"/company/{cid:-?[\d]+}")
+class CompanyView(web.View):
     @property
-    def user_id(self):
-        return int(self.request.match_info["user_id"])
+    def cid(self):
+        return int(self.request.match_info["cid"])
 
     async def put(self):
         data = await self.request.json()
         bm = data.get('basemoney')
+
         async with db.cursor() as cur:
             await cur.execute(
                 """INSERT INTO wallet.data VALUES (%s, %s)""",
@@ -78,4 +82,4 @@ class WalletView(web.View):
 app.on_startup.append(on_startup)
 app.add_routes(routes)
 
-web.run_app(app, **(Settings.get()['stockwallet']['web']))
+web.run_app(app, **(Settings.get()['stockstackfe']['web']))

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    from stockstack.network.connection import WSConnection
+    from stockstackfe.network.connection import WSConnection
 
 
 class Packet:

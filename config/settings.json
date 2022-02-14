@@ -6,12 +6,14 @@
     "user": "stockstack",
     "password": "stockstack"
   },
-  "stockstack": {
-    "wssocket": "/run/stockstack/stockstack_ws"
+  "stockstackfe": {
+    "web": {
+      "port": 5081
+    }
   },
   "stockwallet": {
     "web": {
-      "port": 5420
+      "port": 5082
     }
   }
 }

@@ -1,13 +1,12 @@
 from typing import TYPE_CHECKING
 
 from stockstack.entity.trader import Trader
-from stockstack.network.packets import PACKETS, PacketR, PacketT
-from stockstack.world.company import Company
-from stockstack.world.market import Market
-from stockstack.world.marketconfig import MarketConfig
+from stockstackfe.network.packets import PACKETS, PacketR, PacketT
+from stockstack.world.Company import Company
+from stockstack.world.MarketConfig import MarketConfig
 
 if TYPE_CHECKING:
-    from stockstack.network.connection import WSConnection
+    from stockstackfe.network.connection import WSConnection
 
 
 @PACKETS.register(8)

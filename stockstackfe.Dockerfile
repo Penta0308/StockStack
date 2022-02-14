@@ -5,11 +5,11 @@ WORKDIR /app
 
 RUN useradd -d /app -s /bin/bash stockstack
 
-COPY stockstack/requirements.txt /app/requirements.txt
+COPY stockstackfe/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 USER stockstack
 
-COPY stockstack/ /app/stockstack/
+COPY stockstackfe/ /app/stockstackfe/
 
-CMD sh ./stockstack/run.sh
+CMD sh ./stockstackfe/run.sh

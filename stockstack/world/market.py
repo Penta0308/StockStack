@@ -8,9 +8,9 @@ import aiofiles
 import psycopg
 
 from stockstack.settings import Settings
-from stockstack.world.company import Company
-from stockstack.world.marketconfig import MarketConfig
-from stockstack.world.order import Order
+from stockstack.world import Company
+from stockstack.world import MarketConfig
+from stockstack.world import Order
 
 
 class Market(Thread):
@@ -100,15 +100,6 @@ class Market(Thread):
         )
 
     async def init(self):
-        async with await psycopg.AsyncConnection.connect(
-                **self.dbinfo, autocommit=True
-        ) as dbconn:
-            async with dbconn.cursor() as cur:
-                async with aiofiles.open(
-                        "stockstack/market_init.sql", encoding="UTF-8"
-                ) as f:
-                    await cur.execute(await f.read(), prepare=False)
-
         self.__dbconn = await psycopg.AsyncConnection.connect(
             **self.dbinfo, autocommit=True
         )
@@ -118,11 +109,11 @@ class Market(Thread):
             await MarketConfig.read(self.cursor, "market_pricestepsize_fe")
         )
 
-        # noinspection PyBroadException
-        try:
-            await Company.create(self.cursor, "CONSUMER", 0, factorysize=1)
-        except:
-            pass
+        ## noinspection PyBroadException
+        # try:
+        #    await company.create(self.cursor, "CONSUMER", 0, factorysize=1)
+        # except:
+        #    pass
 
     def cursor(self, name: str = "") -> psycopg.AsyncCursor | psycopg.AsyncServerCursor:
         return self.__dbconn.cursor(name)
