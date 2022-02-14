@@ -6,6 +6,7 @@ import aiofiles
 import psycopg
 from psycopg import rows
 from aiohttp import web
+from stockstack.world import Wallet
 
 
 class Settings:
@@ -54,7 +55,6 @@ async def on_startup(_):
                 """INSERT INTO market.companyfactories (cid, fid, factorysize) VALUES (0, 0, %s)""",
                 (initdata['population'],)
             )
-        from stockstack.world import Wallet
         await Wallet.putmoney(0, initdata['population'] * initdata['gnpp'])
     except:
         pass

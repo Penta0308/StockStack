@@ -8,7 +8,7 @@ import aiofiles
 import psycopg
 
 from stockstack.settings import Settings
-from stockstack.world import Company, Consumer
+from stockstack.world import Company
 from stockstack.world import MarketConfig
 from stockstack.world import Order
 

@@ -39,9 +39,8 @@ CREATE TABLE IF NOT EXISTS world.factories
     unitprice INT           NOT NULL DEFAULT 0
 );
 
-INSERT INTO world.factories (fid, consume, produce, unitprice)
-VALUES (0, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]::INT[],
-        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]:::INT[], 0)
+INSERT INTO world.factories (fid, produce, unitprice)
+VALUES (0, '{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}', 0)
 ON CONFLICT DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS world.config

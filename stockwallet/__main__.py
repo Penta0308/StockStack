@@ -49,7 +49,7 @@ class WalletView(web.View):
 
     async def put(self):
         data = await self.request.json()
-        bm = data.get('basemoney')
+        bm = data.get('amount')
         async with db.cursor() as cur:
             await cur.execute(
                 """INSERT INTO wallet.data VALUES (%s, %s)""",

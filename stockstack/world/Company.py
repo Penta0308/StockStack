@@ -58,7 +58,7 @@ async def _good(curfactory: Callable[[], psycopg.AsyncCursor], gid: int) -> Dict
 async def _goodcount(curfactory: Callable[[], psycopg.AsyncCursor]) -> int:
     async with curfactory() as cur:
         await cur.execute("""SELECT COUNT(gid) FROM world.goods""")
-        return await cur.fetchone()[0]
+        return (await cur.fetchone())[0]
 
 
 async def _companysellprice(curfactory: Callable[[], psycopg.AsyncCursor], cid: int, gid: int) -> int:
@@ -98,7 +98,7 @@ async def _tick_consumer(curfactory: Callable[[], psycopg.AsyncCursor]):
                     cidt = cidt[0]
 
                     amct = await getoutventory(curfactory, cidt, gid)
-                    amct = min(rq, amct)
+                    amct = min(amount, amct)
                     uprice = await _companysellprice(curfactory, cidt, gid)
                     tcost = uprice * amct
                     Settings.logger.info(
@@ -162,7 +162,7 @@ async def _tick(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
                     cidt = cidt[0]
 
                     amct = await getoutventory(curfactory, cidt, gid)
-                    amct = min(rq, amct)
+                    amct = min(amount, amct)
                     uprice = await _companysellprice(curfactory, cidt, gid)
                     tcost = uprice * amct
                     Settings.logger.info(
