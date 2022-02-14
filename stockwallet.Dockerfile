@@ -3,8 +3,10 @@ LABEL maintainer="penta@skmserver.tk"
 
 WORKDIR /app
 
-COPY stockwallet/requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+COPY stockwallet/requirements.txt /app/stockwallet/requirements.txt
+RUN pip install --no-cache-dir -r stockwallet/requirements.txt
+
+USER stockstack
 
 COPY stockwallet/ /app/stockwallet/
 

@@ -43,6 +43,40 @@ async def on_startup(_):
         async with aiofiles.open("stockstackfe/stockstack_init.sql", encoding="UTF-8") as f:
             await cur.execute(await f.read(), prepare=False)
 
+    # noinspection PyBroadException
+    try:
+        initdata = Settings.get()['stockstack']['init']
+        async with dbconn.cursor() as cur:
+            await cur.execute(
+                """INSERT INTO market.companies (cid, name, worktype, listable, sellprice) VALUES (0, 'CONSUMER', 0, FALSE,
+                        (SELECT ARRAY(SELECT baseprice FROM world.goods ORDER BY gid ASC))) RETURNING cid""")
+            await cur.execute(
+                """INSERT INTO market.companyfactories (cid, fid, factorysize) VALUES (0, 0, %s)""",
+                (initdata['population'],)
+            )
+        from stockstack.world import Wallet
+        await Wallet.putmoney(0, initdata['population'] * initdata['gnpp'])
+    except:
+        pass
+
+
+@routes.view(r"/company")
+class CompaniesView(web.View):
+    async def post(self):
+        data = await self.request.json()
+
+        from stockstack.world import Company
+        cid = await Company.create(dbconn.cursor, data.get('name'), data.get('worktype'))
+
+        from stockstack.world import Wallet
+        await Wallet.putmoney(cid)
+
+        raise web.HTTPSeeOther(f'/company/{cid}')
+
+    async def get(self):
+        from stockstack.world import Company
+        return web.json_response({'l': await Company.searchall(dbconn.cursor)})
+
 
 @routes.view(r"/company/{cid:-?[\d]+}")
 class CompanyView(web.View):
@@ -50,34 +84,27 @@ class CompanyView(web.View):
     def cid(self):
         return int(self.request.match_info["cid"])
 
+    async def get(self):
+        from stockstack.world import Company
+        return web.json_response(await Company.getinfo(dbconn.cursor, self.cid))
+
+
+@routes.view(r"/marketconfig/{kkey}")
+class MarketConfigView(web.View):
+    @property
+    def kkey(self):
+        return str(self.request.match_info["kkey"])
+
     async def put(self):
         data = await self.request.json()
-        bm = data.get('basemoney')
 
-        async with db.cursor() as cur:
-            await cur.execute(
-                """INSERT INTO wallet.data VALUES (%s, %s)""",
-                (self.user_id, 0 if bm is None else bm),
-            )
-            return await self.get()
-
-    async def post(self):
-        data = await self.request.json()
-        async with db.cursor() as cur:
-            await cur.execute(
-                """UPDATE wallet.data SET money = money + %s WHERE user_id = %s""",
-                (data["amount"], self.user_id), prepare=True
-            )
-            return await self.get()
+        from stockstack.world import MarketConfig
+        await MarketConfig.write(dbconn.cursor, self.kkey, str(data.get('value')))
+        return await self.get()
 
     async def get(self):
-        async with db.cursor() as cur:
-            await cur.execute(
-                """SELECT money FROM wallet.data WHERE user_id = %s""", (self.user_id,), prepare=True
-            )
-            r = await cur.fetchone()
-            return web.json_response({'amount': None if r is None else r[0]})
-
+        from stockstack.world import MarketConfig
+        return web.json_response({"key": self.kkey, "value": await MarketConfig.read(dbconn.cursor, self.kkey)})
 
 app.on_startup.append(on_startup)
 app.add_routes(routes)

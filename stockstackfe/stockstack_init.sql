@@ -10,18 +10,18 @@ CREATE TABLE IF NOT EXISTS world.goods
 );
 
 INSERT INTO world.goods (gid, name, baseprice, decayrate)
-VALUES (0, 'Agricultural products', 55, 0.1),
-       (1, 'Crude Oil', 100, 0.03),
-       (2, 'Metal', 120, 0.0),
-       (3, 'Grocery', 110, 0.5),
-       (4, 'Clothing', 100, 0.01),
-       (5, 'Fuel', 130, 0.06),
-       (6, 'Chemicals', 100, 0.1),
-       (7, 'Electronics', 300, 0.01)
+VALUES (0, 'Labor', 200, 0.5),
+       (1, 'Agricultural products', 55, 0.1),
+       (2, 'Crude Oil', 100, 0.03),
+       (3, 'Metal', 120, 0.0),
+       (4, 'Grocery', 110, 0.5),
+       (5, 'Clothing', 100, 0.01),
+       (6, 'Fuel', 130, 0.06),
+       (7, 'Chemicals', 100, 0.1),
+       (8, 'Electronics', 300, 0.01)
 ON CONFLICT (gid) DO NOTHING;
 INSERT INTO world.goods (gid)
-VALUES (8),
-       (9),
+VALUES (9),
        (10),
        (11),
        (12),
@@ -39,6 +39,11 @@ CREATE TABLE IF NOT EXISTS world.factories
     unitprice INT           NOT NULL DEFAULT 0
 );
 
+INSERT INTO world.factories (fid, consume, produce, unitprice)
+VALUES (0, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]::INT[],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]:::INT[], 0)
+ON CONFLICT DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS world.config
 (
     key   TEXT PRIMARY KEY,
@@ -49,7 +54,8 @@ INSERT INTO world.config (key, value)
 VALUES ('market_variancerate_float', '0.3'),
        ('market_pricestepsize_fe', $$1 /1000 5 /5000 10 /10000 50 /50000 100 /100000 500 /500000 1000$$),
        ('market_interestrate', '0.05'),
-       ('market_tickn', '0')
+       ('market_tick_active', 'False'),
+       ('market_tick_n', '0')
 ON CONFLICT (key) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS market.companies
@@ -68,7 +74,8 @@ CREATE TABLE IF NOT EXISTS market.companyfactories
     cid         INT REFERENCES market.companies (cid),
     fid         INT REFERENCES world.factories (fid) DEFAULT NULL,
     factorysize INT   NOT NULL                       DEFAULT 0,
-    efficiency  FLOAT NOT NULL                       DEFAULT 1.0
+    efficiency  FLOAT NOT NULL                       DEFAULT 1.0,
+    UNIQUE (cid, fid)
 );
 
 CREATE TABLE IF NOT EXISTS market.stocks

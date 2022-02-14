@@ -76,9 +76,60 @@ async def tick(curfactory: Callable[[], psycopg.AsyncCursor]):
             SELECT a.elem * (SELECT 1 - decayrate FROM world.goods WHERE gid = a.nr - 1) FROM
                                     unnest(outventory) WITH ORDINALITY AS a(elem, nr))""")
 
+    await _tick_consumer(curfactory)
     for cid in await searchall(curfactory):
         await _tick(curfactory, cid)
 
+
+async def _tick_consumer(curfactory: Callable[[], psycopg.AsyncCursor]):
+    cf = (await _companyfactories(curfactory, 0))[0]
+    rq = np.ones(await _goodcount(curfactory), np.int) * cf['factorysize'] * 2
+
+    for gid, amount in enumerate(rq):
+        if amount > 0:
+            async with curfactory() as cur:
+                await cur.execute(
+                    """SELECT cid FROM market.companies WHERE outventory[%s] > 0 ORDER BY sellprice[%s] ASC""",
+                    (gid + 1, gid + 1)
+                )
+                while amount > 0:
+                    cidt = await cur.fetchone()
+                    if cidt is None: break
+                    cidt = cidt[0]
+
+                    amct = await getoutventory(curfactory, cidt, gid)
+                    amct = min(rq, amct)
+                    uprice = await _companysellprice(curfactory, cidt, gid)
+                    tcost = uprice * amct
+                    Settings.logger.info(
+                        f'Company {0} Getting [Good {gid}]x{amct} from {cidt} by paying {uprice}/Unit')
+                    await deltaoutventory(curfactory, cidt, gid, -amct)
+                    await deltainventory(curfactory, 0, gid, +amct)
+                    await Wallet.deltamoney(cidt, +tcost)
+                    await Wallet.deltamoney(0, -tcost)
+                    amount -= amct
+
+    tprod = cf['factorysize']
+    f = await _factory(curfactory, cf['fid'])
+
+    for gid, uamount in enumerate(f['produce']):
+        if uamount == 0: continue
+        moutv = await getoutventory(curfactory, 0, gid) / float(uamount * cf['factorysize'])
+        if moutv >= 2:
+            tprod *= max(0, 3 - moutv)
+
+    for gid, uamount in enumerate(f['consume']):
+        if uamount == 0: continue
+        tprod = min(tprod, await getinventory(curfactory, 0, gid) / float(uamount))
+
+    tprod = int(tprod)
+    for gid, uamount in enumerate(f['consume']):
+        if uamount * tprod == 0: continue
+        await deltainventory(curfactory, 0, gid, -1 * uamount * tprod)
+    for gid, uamount in enumerate(f['produce']):
+        if uamount * tprod == 0: continue
+        await deltaoutventory(curfactory, 0, gid, +1 * uamount * tprod)
+        Settings.logger.info(f'Company {0} Producing [Good {gid}]x{tprod}')
 
 async def _tick(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
     # if cid == 0:
@@ -171,7 +222,7 @@ async def create(
 async def searchall(
         curfactory: Callable[[], psycopg.AsyncCursor], ):
     async with curfactory() as cur:
-        await cur.execute("""SELECT ARRAY(SELECT cid FROM market.companies)""")
+        await cur.execute("""SELECT ARRAY(SELECT cid FROM market.companies WHERE cid != 0)""")
         return (await cur.fetchone())[0]
 
 

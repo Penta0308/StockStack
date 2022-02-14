@@ -5,8 +5,8 @@ WORKDIR /app
 
 RUN useradd -d /app -s /bin/bash stockstack
 
-COPY stockstack/requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+COPY stockstack/requirements.txt /app/stockstack/requirements.txt
+RUN pip install --no-cache-dir -r stockstack/requirements.txt
 
 USER stockstack
 

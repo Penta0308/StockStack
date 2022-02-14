@@ -8,7 +8,7 @@ import aiofiles
 import psycopg
 
 from stockstack.settings import Settings
-from stockstack.world import Company
+from stockstack.world import Company, Consumer
 from stockstack.world import MarketConfig
 from stockstack.world import Order
 
@@ -34,12 +34,14 @@ class Market(Thread):
     async def _run(self):
         await self.init()
         while True:
-            i = int(await MarketConfig.read(self.cursor, 'market_tickn'))
+            i = int(await MarketConfig.read(self.cursor, 'market_tick_n'))
             i, d = await self.tick(i)
-            await MarketConfig.write(self.cursor, 'market_tickn', str(i), update=True)
+            await MarketConfig.write(self.cursor, 'market_tick_n', str(i), update=True)
             await asyncio.sleep(d)
 
     async def tick(self, i) -> (int, float):
+        if await MarketConfig.read(self.cursor, 'market_tick_active') == 'False':
+            return i, 1
         if i == 0:  # 장전동시호가 3초
             return i + 1, 0.001
         if 0 < i < 29:  # 낮 1초 * 많이

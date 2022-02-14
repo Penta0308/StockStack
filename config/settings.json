@@ -15,5 +15,11 @@
     "web": {
       "port": 5082
     }
+  },
+  "stockstack": {
+    "init": {
+      "population": 100000,
+      "gnpp": 1000000
+    }
   }
 }

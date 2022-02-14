@@ -22,6 +22,7 @@ services:
     expose:
       - "5081/tcp"
     volumes:
+      - ./stockstack:/app/stockstack:ro
       - ./stockstackfe:/app/stockstackfe:z
       - ./config:/app/config:z
     healthcheck:

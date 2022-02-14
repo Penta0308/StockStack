@@ -1,3 +1,3 @@
 #!/bin/bash
 
-python -u -m stockstackfe.__main__
+PYTHONPATH="${PYTHONPATH}:$(pwd)" python -u -m stockstackfe.__main__
