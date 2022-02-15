@@ -28,19 +28,20 @@ class Stock:
 
     @staticmethod
     async def searchall(
-            curfactory: Callable[[], psycopg.AsyncCursor], ):
+            curfactory: Callable[[], psycopg.AsyncCursor],
+    ):
         async with curfactory() as cur:
             await cur.execute("""SELECT ARRAY(SELECT ticker FROM market.stocks)""")
             return (await cur.fetchone())[0]
 
     @staticmethod
-    async def getinfo(
-            curfactory: Callable[[], psycopg.AsyncCursor], ticker: str):
+    async def getinfo(curfactory: Callable[[], psycopg.AsyncCursor], ticker: str):
         async with curfactory() as cur:
             cur.row_factory = rows.dict_row
             await cur.execute(
                 """SELECT ticker, cid, totalamount, parvalue, closingprice FROM market.stocks WHERE ticker = %s""",
-                (ticker,))
+                (ticker,),
+            )
             return await cur.fetchone()
 
     """"async def event_close(self):

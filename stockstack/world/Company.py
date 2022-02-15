@@ -30,21 +30,27 @@ class DictGood(TypedDict):
     baseprice: int
 
 
-async def _companyfactories(curfactory: Callable[[], psycopg.AsyncCursor], cid: int) -> List[DictCompanyFactory]:
+async def _companyfactories(
+        curfactory: Callable[[], psycopg.AsyncCursor], cid: int
+) -> List[DictCompanyFactory]:
     async with curfactory() as cur:
         cur.row_factory = rows.dict_row
         await cur.execute(
             """SELECT cid, fid, factorysize, efficiency FROM world.companyfactories WHERE cid = %s""",
-            (cid,))
+            (cid,),
+        )
         return await cur.fetchall()
 
 
-async def _factory(curfactory: Callable[[], psycopg.AsyncCursor], fid: int) -> DictFactory:
+async def _factory(
+        curfactory: Callable[[], psycopg.AsyncCursor], fid: int
+) -> DictFactory:
     async with curfactory() as cur:
         cur.row_factory = rows.dict_row
         await cur.execute(
             """SELECT fid, consume, produce, unitprice FROM world.factories WHERE fid = %s""",
-            (fid,))
+            (fid,),
+        )
         return await cur.fetchone()
 
 
@@ -88,9 +94,9 @@ async def _tick_consumer(curfactory: Callable[[], psycopg.AsyncCursor]):
     rq = collections.Counter()
 
     for cf in await _companyfactories(curfactory, 0):
-        pu = cf['factorysize']
-        f = await _factory(curfactory, cf['fid'])
-        for gid, amount in f['consume'].items():
+        pu = cf["factorysize"]
+        f = await _factory(curfactory, cf["fid"])
+        for gid, amount in f["consume"].items():
             if gid in rq.keys():
                 rq[gid] += amount * pu
             else:
@@ -99,11 +105,11 @@ async def _tick_consumer(curfactory: Callable[[], psycopg.AsyncCursor]):
     for gid, amount in (rq - collections.Counter(await getresources(0))).items():
         await orderbuy_resource(0, gid, amount, None)  # TODO: Price Negotiation
 
-    tprod = cf['factorysize']
-    f = await _factory(curfactory, cf['fid'])
+    tprod = cf["factorysize"]
+    f = await _factory(curfactory, cf["fid"])
 
-    for gid, uamount in f['produce'].items():
-        moutv = await getresource(0, gid) / float(uamount * cf['factorysize'])
+    for gid, uamount in f["produce"].items():
+        moutv = await getresource(0, gid) / float(uamount * cf["factorysize"])
         if moutv >= 2:
             tprod *= max(0, 3 - moutv)
 
@@ -111,12 +117,13 @@ async def _tick_consumer(curfactory: Callable[[], psycopg.AsyncCursor]):
     #    tprod = min(tprod, await getresource(0, gid) / float(uamount))
 
     tprod = int(tprod)
-    for gid, uamount in f['consume'].items():
+    for gid, uamount in f["consume"].items():
         await consumeresource(0, gid, await getresource(0, gid))
-    for gid, uamount in f['produce'].items():
+    for gid, uamount in f["produce"].items():
         a = await produceresource(0, gid, uamount * tprod)
-        Settings.logger.info(f'Company {0} Producing [Good {gid}]x{a}')
+        Settings.logger.info(f"Company {0} Producing [Good {gid}]x{a}")
         await ordersell_resource(0, gid, await getresource(0, gid))
+
 
 async def _tick(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
     # if cid == 0:
@@ -130,9 +137,9 @@ async def _tick(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
     rq = collections.Counter()
 
     for cf in await _companyfactories(curfactory, cid):
-        pu = cf['factorysize']
-        f = await _factory(curfactory, cf['fid'])
-        for gid, amount in f['consume'].items():
+        pu = cf["factorysize"]
+        f = await _factory(curfactory, cf["fid"])
+        for gid, amount in f["consume"].items():
             if gid in rq.keys():
                 rq[gid] += amount * pu
             else:
@@ -142,23 +149,23 @@ async def _tick(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
         await orderbuy_resource(cid, gid, amount, None)  # TODO: Price Negotiation
 
     for cf in await _companyfactories(curfactory, cid):
-        tprod = cf['factorysize']
-        f = await _factory(curfactory, cf['fid'])
+        tprod = cf["factorysize"]
+        f = await _factory(curfactory, cf["fid"])
 
-        for gid, uamount in f['produce'].items():
-            moutv = await getresource(cid, gid) / float(uamount * cf['factorysize'])
+        for gid, uamount in f["produce"].items():
+            moutv = await getresource(cid, gid) / float(uamount * cf["factorysize"])
             if moutv >= 2:
                 tprod *= max(0, 3 - moutv)
 
-        for gid, uamount in f['consume'].items():
+        for gid, uamount in f["consume"].items():
             tprod = min(tprod, await getresource(cid, gid) / float(uamount))
 
         tprod = int(tprod)
-        for gid, uamount in f['consume'].items():
+        for gid, uamount in f["consume"].items():
             await consumeresource(cid, gid, uamount * tprod)
-        for gid, uamount in f['produce'].items():
+        for gid, uamount in f["produce"].items():
             a = await produceresource(cid, gid, uamount * tprod)
-            Settings.logger.info(f'Company {cid} Producing [Good {gid}]x{a}')
+            Settings.logger.info(f"Company {cid} Producing [Good {gid}]x{a}")
             await ordersell_resource(0, gid, await getresource(cid, gid))
 
     if await Wallet.getmoney(cid) <= 50000000:
@@ -171,7 +178,7 @@ async def create(
         curfactory: Callable[[], psycopg.AsyncCursor],
         name: str | None,
         worktype: int | None,
-        listable: bool = False
+        listable: bool = False,
 ):
     async with curfactory() as cur:
         await cur.execute(
@@ -184,19 +191,19 @@ async def create(
 
 
 async def searchall(
-        curfactory: Callable[[], psycopg.AsyncCursor], ):
+        curfactory: Callable[[], psycopg.AsyncCursor],
+):
     async with curfactory() as cur:
         await cur.execute("""SELECT cid FROM world.companies WHERE cid != 0""")
         return await cur.fetchall()
 
 
-async def getinfo(
-        curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
+async def getinfo(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
     async with curfactory() as cur:
         cur.row_factory = rows.dict_row
         await cur.execute(
-            """SELECT cid, name, worktype FROM world.companies WHERE cid = %s""",
-            (cid,))
+            """SELECT cid, name, worktype FROM world.companies WHERE cid = %s""", (cid,)
+        )
         return await cur.fetchone()
 
 

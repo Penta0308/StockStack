@@ -4,6 +4,7 @@ from typing import Dict, TYPE_CHECKING
 if TYPE_CHECKING:
     from stockstack.world.market import Market
 
+
 class Settings:
     _settings = None
 

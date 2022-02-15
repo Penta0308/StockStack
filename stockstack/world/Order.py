@@ -10,22 +10,26 @@ if TYPE_CHECKING:
 
 
 async def tick(market: "Market"):
-    # Settings.logger.debug("Order tick")
-    pass
+    async with market.cursor() as cur:
+        async with market.transaction() as tx:
+            await cur.execute("""""")
+            pass
 
 
 async def orderbuy_put(market: "Market", cid, ticker, amount, price):
     async with market.cursor() as cur:
         await cur.execute(
             """INSERT INTO stockorders (cid, ticker, amount, price) VALUES (%s, %s, %s, %s) ON CONFLICT ON CONSTRAINT stockorders_cid_ticker_constraint DO UPDATE SET (amount, price) = (excluded.amount, excluded.price)""",
-            (cid, ticker, +amount, price))
+            (cid, ticker, +amount, price),
+        )
 
 
 async def ordersell_put(market: "Market", cid, ticker, amount, price):
     async with market.cursor() as cur:
         await cur.execute(
             """INSERT INTO stockorders (cid, ticker, amount, price) VALUES (%s, %s, %s, %s) ON CONFLICT ON CONSTRAINT stockorders_cid_ticker_constraint DO UPDATE SET (amount, price) = (excluded.amount, excluded.price)""",
-            (cid, ticker, -amount, price))
+            (cid, ticker, -amount, price),
+        )
 
 
 """    def order_process(self):

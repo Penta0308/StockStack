@@ -37,7 +37,9 @@ async def on_startup(_):
     logger.addHandler(stderrlogger)
 
     global dbconn
-    dbconn = await psycopg.AsyncConnection.connect(**(Settings.get()['database']), autocommit=True)
+    dbconn = await psycopg.AsyncConnection.connect(
+        **(Settings.get()["database"]), autocommit=True
+    )
 
 
 @routes.view(r"/company")
@@ -46,17 +48,22 @@ class CompaniesView(web.View):
         data = await self.request.json()
 
         from stockstack.world import Company
-        cid = await Company.create(dbconn.cursor, data.get('name'), data.get('worktype'))
+
+        cid = await Company.create(
+            dbconn.cursor, data.get("name"), data.get("worktype")
+        )
 
         from stockstack.world import Wallet
+
         await Wallet.putmoney(cid)
 
-        raise web.HTTPSeeOther(f'/company/{cid}')
+        raise web.HTTPSeeOther(f"/company/{cid}")
 
     # noinspection PyMethodMayBeStatic
     async def get(self):
         from stockstack.world import Company
-        return web.json_response({'l': await Company.searchall(dbconn.cursor)})
+
+        return web.json_response({"l": await Company.searchall(dbconn.cursor)})
 
 
 @routes.view(r"/company/{cid:-?[\d]+}")
@@ -67,6 +74,7 @@ class CompanyView(web.View):
 
     async def get(self):
         from stockstack.world import Company
+
         return web.json_response(await Company.getinfo(dbconn.cursor, self.cid))
 
 
@@ -80,14 +88,22 @@ class MarketConfigView(web.View):
         data = await self.request.json()
 
         from stockstack.world import WorldConfig
-        await WorldConfig.write(dbconn.cursor, self.kkey, str(data.get('value')))
+
+        await WorldConfig.write(dbconn.cursor, self.kkey, str(data.get("value")))
         return await self.get()
 
     async def get(self):
         from stockstack.world import WorldConfig
-        return web.json_response({"key": self.kkey, "value": await WorldConfig.read(dbconn.cursor, self.kkey)})
+
+        return web.json_response(
+            {
+                "key": self.kkey,
+                "value": await WorldConfig.read(dbconn.cursor, self.kkey),
+            }
+        )
+
 
 app.on_startup.append(on_startup)
 app.add_routes(routes)
 
-web.run_app(app, **(Settings.get()['stockstackfe']['web']))
+web.run_app(app, **(Settings.get()["stockstackfe"]["web"]))

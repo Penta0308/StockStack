@@ -28,11 +28,11 @@ db: psycopg.AsyncConnection
 
 async def on_startup(_):
     global db
-    db = await psycopg.AsyncConnection.connect(**(Settings.get()['database']), autocommit=True)
+    db = await psycopg.AsyncConnection.connect(
+        **(Settings.get()["database"]), autocommit=True
+    )
     async with db.cursor() as cur:
-        await cur.execute(
-            """CREATE SCHEMA IF NOT EXISTS wallet"""
-        )
+        await cur.execute("""CREATE SCHEMA IF NOT EXISTS wallet""")
         await cur.execute(
             """CREATE TABLE IF NOT EXISTS wallet.data (
             user_id BIGINT PRIMARY KEY,
@@ -49,7 +49,7 @@ class WalletView(web.View):
 
     async def put(self):
         data = await self.request.json()
-        bm = data.get('amount')
+        bm = data.get("amount")
         async with db.cursor() as cur:
             await cur.execute(
                 """INSERT INTO wallet.data VALUES (%s, %s)""",
@@ -62,20 +62,23 @@ class WalletView(web.View):
         async with db.cursor() as cur:
             await cur.execute(
                 """UPDATE wallet.data SET money = money + %s WHERE user_id = %s""",
-                (data["amount"], self.user_id), prepare=True
+                (data["amount"], self.user_id),
+                prepare=True,
             )
             return await self.get()
 
     async def get(self):
         async with db.cursor() as cur:
             await cur.execute(
-                """SELECT money FROM wallet.data WHERE user_id = %s""", (self.user_id,), prepare=True
+                """SELECT money FROM wallet.data WHERE user_id = %s""",
+                (self.user_id,),
+                prepare=True,
             )
             r = await cur.fetchone()
-            return web.json_response({'amount': None if r is None else r[0]})
+            return web.json_response({"amount": None if r is None else r[0]})
 
 
 app.on_startup.append(on_startup)
 app.add_routes(routes)
 
-web.run_app(app, **(Settings.get()['stockwallet']['web']))
+web.run_app(app, **(Settings.get()["stockwallet"]["web"]))

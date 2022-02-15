@@ -17,7 +17,9 @@ class Market:
             )
             return (await cur.fetchone())[0]
 
-    async def config_write(self: "Market", key: str, value: str, update: bool = True) -> None:
+    async def config_write(
+            self: "Market", key: str, value: str, update: bool = True
+    ) -> None:
         async with self.cursor() as cur:
             if update:
                 await cur.execute(
@@ -37,7 +39,12 @@ class Market:
         EQUIVCALL = 1
         OPEN = 2
 
-    def __init__(self, marketname: str, dbinfo: dict, initfile="stockstack/stockstack_market_default_init.sql"):
+    def __init__(
+            self,
+            marketname: str,
+            dbinfo: dict,
+            initfile="stockstack/stockstack_market_default_init.sql",
+    ):
         super().__init__()
         self.__marketname = marketname
         self.__initfile = initfile
@@ -107,12 +114,19 @@ class Market:
         )
 
     async def init(self):
-        async with await psycopg.AsyncConnection.connect(**self.__dbinfo, autocommit=True) as dbconn:
+        async with await psycopg.AsyncConnection.connect(
+                **self.__dbinfo, autocommit=True
+        ) as dbconn:
             async with dbconn.cursor() as cur:
-                await cur.execute(f"""CREATE SCHEMA IF NOT EXISTS {self.__schemaname}""", prepare=False)
+                await cur.execute(
+                    f"""CREATE SCHEMA IF NOT EXISTS {self.__schemaname}""",
+                    prepare=False,
+                )
         self.__dbinfo["options"] = f"-c search_path={self.__schemaname}"
 
-        self.__dbconn = await psycopg.AsyncConnection.connect(**self.__dbinfo, autocommit=True)
+        self.__dbconn = await psycopg.AsyncConnection.connect(
+            **self.__dbinfo, autocommit=True
+        )
 
         async with self.cursor() as cur:
             async with aiofiles.open(self.__initfile, encoding="UTF-8") as f:
@@ -123,7 +137,9 @@ class Market:
             await self.config_read("market_pricestepsize_fe")
         )
 
-    def cursor(self, *args, **kwargs) -> psycopg.AsyncCursor | psycopg.AsyncServerCursor:
+    def cursor(
+            self, *args, **kwargs
+    ) -> psycopg.AsyncCursor | psycopg.AsyncServerCursor:
         return self.__dbconn.cursor(*args, **kwargs)
 
     def transaction(self, *args, **kwargs) -> AsyncIterator[AsyncTransaction]:
@@ -131,24 +147,32 @@ class Market:
 
     async def stockowns_get_company(self, cid: int):
         async with self.cursor() as cur:
-            await cur.execute("""SELECT ticker, amount FROM stockowns WHERE cid = %s""", (cid,))
+            await cur.execute(
+                """SELECT ticker, amount FROM stockowns WHERE cid = %s""", (cid,)
+            )
             return await cur.fetchall()
 
     async def stockown_get_company(self, cid: int, ticker: str):
         async with self.cursor() as cur:
-            await cur.execute("""SELECT coalesce((SELECT amount FROM stockowns WHERE cid = %s AND ticker = %s), 0)""",
-                              (cid, ticker))
+            await cur.execute(
+                """SELECT coalesce((SELECT amount FROM stockowns WHERE cid = %s AND ticker = %s), 0)""",
+                (cid, ticker),
+            )
             return (await cur.fetchone())[0]
 
     async def stockown_create(self, cid: int, ticker: str, amount: int):
         async with self.cursor() as cur:
-            await cur.execute("""INSERT INTO stockowns (cid, ticker, amount) VALUES (%s, %s, %s)
+            await cur.execute(
+                """INSERT INTO stockowns (cid, ticker, amount) VALUES (%s, %s, %s)
                                  ON CONFLICT ON CONSTRAINT stockowns_cid_ticker_constraint DO UPDATE SET amount = stockowns.amount + excluded.amount""",
-                              (cid, ticker, amount))
+                (cid, ticker, amount),
+            )
         return amount
 
     async def stockown_delete(self, cid: int, ticker: str, amount: int):
         async with self.cursor() as cur:
-            await cur.execute("""UPDATE stockowns SET amount = amount - %s WHERE cid = %s AND ticker = %s""",
-                              (amount, cid, ticker))
+            await cur.execute(
+                """UPDATE stockowns SET amount = amount - %s WHERE cid = %s AND ticker = %s""",
+                (amount, cid, ticker),
+            )
         return amount
