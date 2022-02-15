@@ -17,17 +17,15 @@ async def tick(market: "Market"):
 async def orderbuy_put(market: "Market", cid, ticker, amount, price):
     async with market.cursor() as cur:
         await cur.execute(
-            """INSERT INTO stockorders (cid, ticker, amount, price) VALUES (%s, %s, %s, %s) ON CONFLICT (cid, ticker) DO UPDATE SET (amount, price) = (excluded.amount, excluded.price)""",
+            """INSERT INTO stockorders (cid, ticker, amount, price) VALUES (%s, %s, %s, %s) ON CONFLICT ON CONSTRAINT stockorders_cid_ticker_constraint DO UPDATE SET (amount, price) = (excluded.amount, excluded.price)""",
             (cid, ticker, +amount, price))
-        return await cur.fetchone()
 
 
 async def ordersell_put(market: "Market", cid, ticker, amount, price):
     async with market.cursor() as cur:
         await cur.execute(
-            """INSERT INTO stockorders (cid, ticker, amount, price) VALUES (%s, %s, %s, %s) ON CONFLICT (cid, ticker) DO UPDATE SET (amount, price) = (excluded.amount, excluded.price)""",
+            """INSERT INTO stockorders (cid, ticker, amount, price) VALUES (%s, %s, %s, %s) ON CONFLICT ON CONSTRAINT stockorders_cid_ticker_constraint DO UPDATE SET (amount, price) = (excluded.amount, excluded.price)""",
             (cid, ticker, -amount, price))
-        return await cur.fetchone()
 
 
 """    def order_process(self):

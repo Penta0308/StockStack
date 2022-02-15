@@ -1,4 +1,3 @@
-import asyncio
 import enum
 from typing import Union, List, Tuple, Callable, Optional, AsyncIterator
 import math
@@ -7,8 +6,6 @@ import aiofiles
 import psycopg
 from psycopg import AsyncTransaction
 
-from stockstack.settings import Settings
-from stockstack.world import Company
 from stockstack.world import Order
 
 
@@ -146,10 +143,12 @@ class Market:
     async def stockown_create(self, cid: int, ticker: str, amount: int):
         async with self.cursor() as cur:
             await cur.execute("""INSERT INTO stockowns (cid, ticker, amount) VALUES (%s, %s, %s)
-                                 ON CONFLICT (cid, ticker) DO UPDATE SET amount = stockowns.amount + excluded.amount""",
+                                 ON CONFLICT ON CONSTRAINT stockowns_cid_ticker_constraint DO UPDATE SET amount = stockowns.amount + excluded.amount""",
                               (cid, ticker, amount))
+        return amount
 
     async def stockown_delete(self, cid: int, ticker: str, amount: int):
         async with self.cursor() as cur:
             await cur.execute("""UPDATE stockowns SET amount = amount - %s WHERE cid = %s AND ticker = %s""",
                               (amount, cid, ticker))
+        return amount

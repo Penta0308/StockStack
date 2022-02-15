@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS stockowns
     cid    INT REFERENCES world.companies (cid),
     ticker TEXT REFERENCES stocks (ticker),
     amount INT DEFAULT 0 NOT NULL,
-    UNIQUE (cid, ticker)
+    CONSTRAINT stockowns_cid_ticker_constraint UNIQUE (cid, ticker)
 );
 
 CREATE TABLE IF NOT EXISTS stockorders
@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS stockorders
     cid    INT REFERENCES world.companies (cid),
     ticker TEXT REFERENCES stocks (ticker),
     amount INT NOT NULL,
-    price  INT
+    price  INT,
+    CONSTRAINT stockorders_cid_ticker_constraint UNIQUE (cid, ticker)
 );
 
 INSERT INTO stocks (ticker, name, closingprice)
