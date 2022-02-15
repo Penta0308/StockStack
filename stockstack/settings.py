@@ -1,10 +1,14 @@
 import json
+from typing import Dict, TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from stockstack.world.market import Market
 
 class Settings:
     _settings = None
 
     logger = None
+    markets: Dict[str, "Market"] = dict()
 
     @staticmethod
     def load():

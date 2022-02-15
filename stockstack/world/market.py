@@ -1,65 +1,73 @@
 import asyncio
 import enum
-from threading import Thread
-from typing import Union, List, Tuple, Callable, Optional
+from typing import Union, List, Tuple, Callable, Optional, AsyncIterator
 import math
 
 import aiofiles
 import psycopg
+from psycopg import AsyncTransaction
 
 from stockstack.settings import Settings
 from stockstack.world import Company
-from stockstack.world import MarketConfig
 from stockstack.world import Order
 
 
-class Market(Thread):
+class Market:
+    async def config_read(self: "Market", key: str) -> str:
+        async with self.cursor() as cur:
+            await cur.execute(
+                """SELECT value from lconfig WHERE key = %s""", (key,), prepare=True
+            )
+            return (await cur.fetchone())[0]
+
+    async def config_write(self: "Market", key: str, value: str, update: bool = True) -> None:
+        async with self.cursor() as cur:
+            if update:
+                await cur.execute(
+                    """INSERT INTO lconfig (key, value) VALUES (%s, %s) ON CONFLICT (key) DO UPDATE SET (key, value) = (excluded.key, excluded.value)""",
+                    (key, value),
+                    prepare=True,
+                )
+            else:
+                await cur.execute(
+                    """INSERT INTO lconfig (key, value) VALUES (%s, %s)""",
+                    (key, value),
+                    prepare=True,
+                )
+
     class State(enum.IntEnum):
         CLOSE = 0
         EQUIVCALL = 1
         OPEN = 2
 
-    def __init__(self, dbinfo: dict):
+    def __init__(self, marketname: str, dbinfo: dict, initfile="stockstack/stockstack_market_default_init.sql"):
         super().__init__()
-        self.dbinfo = dbinfo
+        self.__marketname = marketname
+        self.__initfile = initfile
+        self.__schemaname = f"m{marketname}"
+        self.__dbinfo = dbinfo
         self.__dbconn: Optional[psycopg.AsyncConnection] = None
 
         self._price_stepsize_f = Market.PriceStepsizeFEval()  # Initial... won't work
         self._variancerate = 0.001  # too
 
-    def run(self):
-        Settings.logger.info(f"Market Starting")
-        asyncio.run(self._run(), debug=True)
-
-    async def _run(self):
-        await self.init()
-        while True:
-            i = int(await MarketConfig.read(self.cursor, 'market_tick_n'))
-            i, d = await self.tick(i)
-            await MarketConfig.write(self.cursor, 'market_tick_n', str(i), update=True)
-            await asyncio.sleep(d)
-
-    async def tick(self, i) -> (int, float):
-        if await MarketConfig.read(self.cursor, 'market_tick_active') == 'False':
-            return i, 1
+    async def tick(self, i: int):
         if i == 0:  # 장전동시호가 3초
-            return i + 1, 0.001
+            pass
         if 0 < i < 29:  # 낮 1초 * 많이
             if i == 1:  # 낮 첫 틱
-                await Order.tick(self.cursor)  # 장전동시호가 주문처리
+                await Order.tick(self)  # 장전동시호가 주문처리
                 pass
             else:
-                await Order.tick(self.cursor)  # 낮 틱 주문처리
-            return i + 1, 0.003
+                await Order.tick(self)  # 낮 틱 주문처리
+            pass
         if i == 29:  # 장후동시호가 3초
-            await Order.tick(self.cursor)  # 낮 마지막 틱 주문처리
-            return i + 1, 0.001
+            await Order.tick(self)  # 낮 마지막 틱 주문처리
+            pass
         if i >= 30:  # 밤 3초
             if i == 30:  # 밤 첫 틱
-                await Order.tick(self.cursor)  # 장후동시호가 주문처리
-                await Company.tick(self.cursor)  # 회사의 시간
-            return 0, 1
-        return 0, 1
+                await Order.tick(self)  # 장후동시호가 주문처리
+            pass
 
     class PriceStepsizeFEval:
         _pricerange: Union[List[int], List[float]]
@@ -102,22 +110,46 @@ class Market(Thread):
         )
 
     async def init(self):
-        self.__dbconn = await psycopg.AsyncConnection.connect(
-            **self.dbinfo, autocommit=True
-        )
+        async with await psycopg.AsyncConnection.connect(**self.__dbinfo, autocommit=True) as dbconn:
+            async with dbconn.cursor() as cur:
+                await cur.execute(f"""CREATE SCHEMA IF NOT EXISTS {self.__schemaname}""", prepare=False)
+        self.__dbinfo["options"] = f"-c search_path={self.__schemaname}"
 
-        self._variancerate = float(await MarketConfig.read(self.cursor, "market_variancerate_float"))
+        self.__dbconn = await psycopg.AsyncConnection.connect(**self.__dbinfo, autocommit=True)
+
+        async with self.cursor() as cur:
+            async with aiofiles.open(self.__initfile, encoding="UTF-8") as f:
+                await cur.execute(await f.read(), prepare=False)
+
+        self._variancerate = float(await self.config_read("market_variancerate_float"))
         self._price_stepsize_f.compile(
-            await MarketConfig.read(self.cursor, "market_pricestepsize_fe")
+            await self.config_read("market_pricestepsize_fe")
         )
 
-        ## noinspection PyBroadException
-        # try:
-        #    await company.create(self.cursor, "CONSUMER", 0, factorysize=1)
-        # except:
-        #    pass
+    def cursor(self, *args, **kwargs) -> psycopg.AsyncCursor | psycopg.AsyncServerCursor:
+        return self.__dbconn.cursor(*args, **kwargs)
 
-    def cursor(self, name: str = "") -> psycopg.AsyncCursor | psycopg.AsyncServerCursor:
-        return self.__dbconn.cursor(name)
+    def transaction(self, *args, **kwargs) -> AsyncIterator[AsyncTransaction]:
+        return self.__dbconn.transaction(*args, **kwargs)
 
+    async def stockowns_get_company(self, cid: int):
+        async with self.cursor() as cur:
+            await cur.execute("""SELECT ticker, amount FROM stockowns WHERE cid = %s""", (cid,))
+            return await cur.fetchall()
 
+    async def stockown_get_company(self, cid: int, ticker: str):
+        async with self.cursor() as cur:
+            await cur.execute("""SELECT coalesce((SELECT amount FROM stockowns WHERE cid = %s AND ticker = %s), 0)""",
+                              (cid, ticker))
+            return (await cur.fetchone())[0]
+
+    async def stockown_create(self, cid: int, ticker: str, amount: int):
+        async with self.cursor() as cur:
+            await cur.execute("""INSERT INTO stockowns (cid, ticker, amount) VALUES (%s, %s, %s)
+                                 ON CONFLICT (cid, ticker) DO UPDATE SET amount = stockowns.amount + excluded.amount""",
+                              (cid, ticker, amount))
+
+    async def stockown_delete(self, cid: int, ticker: str, amount: int):
+        async with self.cursor() as cur:
+            await cur.execute("""UPDATE stockowns SET amount = amount - %s WHERE cid = %s AND ticker = %s""",
+                              (amount, cid, ticker))

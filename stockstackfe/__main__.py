@@ -1,10 +1,8 @@
 import logging
 import json
-import asyncio
 
 import aiofiles
 import psycopg
-from psycopg import rows
 from aiohttp import web
 from stockstack.world import Wallet
 
@@ -40,24 +38,6 @@ async def on_startup(_):
 
     global dbconn
     dbconn = await psycopg.AsyncConnection.connect(**(Settings.get()['database']), autocommit=True)
-    async with dbconn.cursor() as cur:
-        async with aiofiles.open("stockstackfe/stockstack_init.sql", encoding="UTF-8") as f:
-            await cur.execute(await f.read(), prepare=False)
-
-    # noinspection PyBroadException
-    try:
-        initdata = Settings.get()['stockstack']['init']
-        async with dbconn.cursor() as cur:
-            await cur.execute(
-                """INSERT INTO market.companies (cid, name, worktype, listable, sellprice) VALUES (0, 'CONSUMER', 0, FALSE,
-                        (SELECT ARRAY(SELECT baseprice FROM world.goods ORDER BY gid ASC))) RETURNING cid""")
-            await cur.execute(
-                """INSERT INTO market.companyfactories (cid, fid, factorysize) VALUES (0, 0, %s)""",
-                (initdata['population'],)
-            )
-        await Wallet.putmoney(0, initdata['population'] * initdata['gnpp'])
-    except:
-        pass
 
 
 @routes.view(r"/company")
@@ -73,6 +53,7 @@ class CompaniesView(web.View):
 
         raise web.HTTPSeeOther(f'/company/{cid}')
 
+    # noinspection PyMethodMayBeStatic
     async def get(self):
         from stockstack.world import Company
         return web.json_response({'l': await Company.searchall(dbconn.cursor)})
@@ -89,7 +70,7 @@ class CompanyView(web.View):
         return web.json_response(await Company.getinfo(dbconn.cursor, self.cid))
 
 
-@routes.view(r"/marketconfig/{kkey}")
+@routes.view(r"/worldconfig/{kkey}")
 class MarketConfigView(web.View):
     @property
     def kkey(self):
@@ -98,13 +79,13 @@ class MarketConfigView(web.View):
     async def put(self):
         data = await self.request.json()
 
-        from stockstack.world import MarketConfig
-        await MarketConfig.write(dbconn.cursor, self.kkey, str(data.get('value')))
+        from stockstack.world import WorldConfig
+        await WorldConfig.write(dbconn.cursor, self.kkey, str(data.get('value')))
         return await self.get()
 
     async def get(self):
-        from stockstack.world import MarketConfig
-        return web.json_response({"key": self.kkey, "value": await MarketConfig.read(dbconn.cursor, self.kkey)})
+        from stockstack.world import WorldConfig
+        return web.json_response({"key": self.kkey, "value": await WorldConfig.read(dbconn.cursor, self.kkey)})
 
 app.on_startup.append(on_startup)
 app.add_routes(routes)
