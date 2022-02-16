@@ -32,7 +32,7 @@ async def _tick(market: "Market", ticker: str):
             if od["amount"] > 0:  # buy
                 if od["price"] is not None:
                     await cur.execute(
-                        """SELECT * FROM stockorders WHERE ticker = %s AND ots < %s AND amount < 0 AND ((price <= %s) OR (price IS NULL)) ORDER BY price ASC NULLS FIRST, ots ASC""",
+                        """SELECT * FROM stockorders WHERE (ticker = %s) AND (ots < %s) AND (amount < 0) AND ((price <= %s) OR (price IS NULL)) ORDER BY price ASC NULLS FIRST, ots ASC""",
                         (ticker, od["ots"], od["price"]),
                     )
                     r = await cur.fetchall()
@@ -42,11 +42,11 @@ async def _tick(market: "Market", ticker: str):
                         # async with market.dbconn.transaction():
                         await cur.execute(
                             """UPDATE stockorders SET amount = amount + %s WHERE ots = %s""",
-                            (amount, oa["amount"]),
+                            (amount, oa["ots"]),
                         )
                         await cur.execute(
                             """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
-                            (amount, od["amount"]),
+                            (amount, od["ots"]),
                         )
                         await market.stockown_create(od["cid"], ticker, amount)
                         await market.stockown_delete(oa["cid"], ticker, amount)
@@ -59,8 +59,8 @@ async def _tick(market: "Market", ticker: str):
                             break
                 else:
                     await cur.execute(
-                        """SELECT * FROM stockorders WHERE ticker = %s AND ots < %s AND amount < 0 AND ((price <= %s) OR (price IS NULL)) ORDER BY price ASC NULLS FIRST, ots ASC""",
-                        (ticker, od["ots"], od["price"]),
+                        """SELECT * FROM stockorders WHERE (ticker = %s) AND (ots < %s) AND (amount < 0) ORDER BY price ASC NULLS FIRST, ots ASC""",
+                        (ticker, od["ots"]),
                     )
                     r = await cur.fetchall()
                     for oa in r:
@@ -71,11 +71,11 @@ async def _tick(market: "Market", ticker: str):
                         # async with market.dbconn.transaction():
                         await cur.execute(
                             """UPDATE stockorders SET amount = amount + %s WHERE ots = %s""",
-                            (amount, oa["amount"]),
+                            (amount, oa["ots"]),
                         )
                         await cur.execute(
                             """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
-                            (amount, od["amount"]),
+                            (amount, od["ots"]),
                         )
                         await market.stockown_create(od["cid"], ticker, amount)
                         await market.stockown_delete(oa["cid"], ticker, amount)
@@ -89,7 +89,7 @@ async def _tick(market: "Market", ticker: str):
             elif od["amount"] < 0:  # sell
                 if od["price"] is not None:
                     await cur.execute(
-                        """SELECT * FROM stockorders WHERE ticker = %s AND ots < %s AND amount > 0 AND ((price >= %s) OR (price IS NULL)) ORDER BY price DESC NULLS FIRST, ots ASC""",
+                        """SELECT * FROM stockorders WHERE (ticker = %s) AND (ots < %s) AND (amount > 0) AND ((price >= %s) OR (price IS NULL)) ORDER BY price DESC NULLS FIRST, ots ASC""",
                         (ticker, od["ots"], od["price"]),
                     )
                     r = await cur.fetchall()
@@ -99,11 +99,11 @@ async def _tick(market: "Market", ticker: str):
                         # async with market.dbconn.transaction():
                         await cur.execute(
                             """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
-                            (amount, oa["amount"]),
+                            (amount, oa["ots"]),
                         )
                         await cur.execute(
                             """UPDATE stockorders SET amount = amount + %s WHERE ots = %s""",
-                            (amount, od["amount"]),
+                            (amount, od["ots"]),
                         )
                         await market.stockown_delete(od["cid"], ticker, amount)
                         await market.stockown_create(oa["cid"], ticker, amount)
@@ -116,8 +116,8 @@ async def _tick(market: "Market", ticker: str):
                             break
                 else:
                     await cur.execute(
-                        """SELECT * FROM stockorders WHERE ticker = %s AND ots < %s AND amount > 0 AND ((price >= %s) OR (price IS NULL)) ORDER BY price DESC NULLS FIRST, ots ASC""",
-                        (ticker, od["ots"], od["price"]),
+                        """SELECT * FROM stockorders WHERE (ticker = %s) AND (ots < %s) AND (amount > 0) ORDER BY price DESC NULLS FIRST, ots ASC""",
+                        (ticker, od["ots"]),
                     )
                     r = await cur.fetchall()
                     for oa in r:
@@ -128,11 +128,11 @@ async def _tick(market: "Market", ticker: str):
                         # async with market.dbconn.transaction():
                         await cur.execute(
                             """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
-                            (amount, oa["amount"]),
+                            (amount, oa["ots"]),
                         )
                         await cur.execute(
                             """UPDATE stockorders SET amount = amount + %s WHERE ots = %s""",
-                            (amount, od["amount"]),
+                            (amount, od["ots"]),
                         )
                         await market.stockown_delete(od["cid"], ticker, amount)
                         await market.stockown_create(oa["cid"], ticker, amount)

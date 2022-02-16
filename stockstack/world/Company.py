@@ -87,6 +87,7 @@ async def tick(curfactory: Callable[[], psycopg.AsyncCursor]):
     for cid in await searchall(curfactory):
         cid = cid[0]
         await _tick(curfactory, cid)
+    await labordecay(curfactory)
 
 
 async def labordecay(curfactory: Callable[[], psycopg.AsyncCursor]):
@@ -108,19 +109,16 @@ async def _tick_consumer(curfactory: Callable[[], psycopg.AsyncCursor]):
             else:
                 rq[gid] = amount * pu
 
-    for gid, amount in (rq - collections.Counter(await getresources(0))).items():
+    rq -= collections.Counter(dict(await getresources(0)))
+
+    for gid, amount in rq.items():
+        Settings.logger.info(f"Consumer Wants [Good {gid}]x{amount}")
         await orderbuy_resource(0, gid, amount, None)  # TODO: Price Negotiation
 
     tprod = cf["factorysize"]
     f = await _factory(curfactory, cf["fid"])
 
-    for gid, uamount in f["produce"].items():
-        moutv = await getresource(0, gid) / float(uamount * cf["factorysize"])
-        if moutv >= 2:
-            tprod *= max(0, 3 - moutv)
-
-    # for gid, uamount in f['consume'].items():
-    #    tprod = min(tprod, await getresource(0, gid) / float(uamount))
+    await consumeresource(0, 'labor', await getresource(0, 'labor'))
 
     tprod = int(tprod)
     for gid, uamount in f["consume"].items():

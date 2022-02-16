@@ -165,7 +165,7 @@ class Market:
     async def stockown_delete(self, cid: int, ticker: str, amount: int):
         async with self.dbconn.cursor() as cur:
             await cur.execute(
-                """UPDATE stockowns SET amount = amount - %s WHERE cid = %s AND ticker = %s""",
+                """UPDATE stockowns SET amount = amount - %s WHERE (cid = %s) AND (ticker = %s)""",
                 (amount, cid, ticker),
             )
         return amount
