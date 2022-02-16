@@ -122,7 +122,7 @@ async def _tick_consumer(curfactory: Callable[[], psycopg.AsyncCursor]):
     for gid, uamount in f["produce"].items():
         a = await produceresource(0, gid, uamount * tprod)
         Settings.logger.info(f"Company {0} Producing [Good {gid}]x{a}")
-        await ordersell_resource(0, gid, await getresource(0, gid))
+        await ordersell_resource(0, gid, a)
 
 
 async def _tick(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
@@ -166,7 +166,7 @@ async def _tick(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
         for gid, uamount in f["produce"].items():
             a = await produceresource(cid, gid, uamount * tprod)
             Settings.logger.info(f"Company {cid} Producing [Good {gid}]x{a}")
-            await ordersell_resource(0, gid, await getresource(cid, gid))
+            await ordersell_resource(0, gid, a)
 
     if await Wallet.getmoney(cid) <= 50000000:
         pass  # TODO: 유상증자

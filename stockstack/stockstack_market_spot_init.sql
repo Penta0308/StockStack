@@ -33,8 +33,7 @@ CREATE TABLE IF NOT EXISTS stockorders
     cid    INT REFERENCES world.companies (cid),
     ticker TEXT REFERENCES stocks (ticker),
     amount INT NOT NULL,
-    price  INT,
-    CONSTRAINT stockorders_cid_ticker_constraint UNIQUE (cid, ticker)
+    price INT
 );
 CREATE TABLE IF NOT EXISTS stockorderspending
 (
