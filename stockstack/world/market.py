@@ -57,6 +57,7 @@ class Market:
 
     async def tick(self, i: int):
         if i == 0:  # 장전동시호가 3초
+            await Order.clear(self)
             pass
         if 0 < i < 29:  # 낮 1초 * 많이
             if i == 1:  # 낮 첫 틱

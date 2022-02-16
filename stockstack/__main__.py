@@ -64,9 +64,10 @@ def run():
             return i, 1
 
         async def mastertick(i):
-            if i >= 30:  # 밤 3초
-                if i == 30:
-                    await Company.tick(cursor)  # 회사의 시간
+            if i == 1:
+                await Company.tick(cursor)  # 회사의 시간
+            if i == 29:
+                await Company.labordecay(cursor)
 
         await asyncio.gather(
             mastertick(i), *[market.tick(i) for market in Settings.markets.values()]

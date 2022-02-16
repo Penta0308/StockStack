@@ -89,6 +89,12 @@ async def tick(curfactory: Callable[[], psycopg.AsyncCursor]):
         await _tick(curfactory, cid)
 
 
+async def labordecay(curfactory: Callable[[], psycopg.AsyncCursor]):
+    Settings.logger.info("Labor decay")
+    async with curfactory() as cur:
+        await cur.execute("""DELETE FROM mspot.stockowns WHERE ticker = 'labor' AND cid != 0""")  # Decay Code
+
+
 async def _tick_consumer(curfactory: Callable[[], psycopg.AsyncCursor]):
     cf = (await _companyfactories(curfactory, 0))[0]
     rq = collections.Counter()
@@ -122,7 +128,7 @@ async def _tick_consumer(curfactory: Callable[[], psycopg.AsyncCursor]):
     for gid, uamount in f["produce"].items():
         a = await produceresource(0, gid, uamount * tprod)
         Settings.logger.info(f"Company {0} Producing [Good {gid}]x{a}")
-        await ordersell_resource(0, gid, a)
+        await ordersell_resource(0, gid, await getresource(0, gid))
 
 
 async def _tick(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
@@ -166,7 +172,7 @@ async def _tick(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
         for gid, uamount in f["produce"].items():
             a = await produceresource(cid, gid, uamount * tprod)
             Settings.logger.info(f"Company {cid} Producing [Good {gid}]x{a}")
-            await ordersell_resource(0, gid, a)
+            await ordersell_resource(0, gid, await getresource(cid, gid))
 
     if await Wallet.getmoney(cid) <= 50000000:
         pass  # TODO: 유상증자

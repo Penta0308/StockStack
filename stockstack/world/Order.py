@@ -152,6 +152,11 @@ async def tick(market: "Market"):
     await asyncio.gather(*[_tick(market, t[0]) for t in td])
 
 
+async def clear(market: "Market"):
+    async with market.dbconn.cursor() as cur:
+        await cur.execute("""DELETE FROM stockorders""")
+
+
 async def orderbuy_put(market: "Market", cid, ticker, amount, price):
     async with market.dbconn.cursor() as cur:
         await cur.execute(
