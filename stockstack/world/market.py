@@ -11,7 +11,7 @@ from stockstack.world import Order
 
 class Market:
     async def config_read(self: "Market", key: str) -> str:
-        async with self.cursor() as cur:
+        async with self.dbconn.cursor() as cur:
             await cur.execute(
                 """SELECT value from lconfig WHERE key = %s""", (key,), prepare=True
             )
@@ -20,7 +20,7 @@ class Market:
     async def config_write(
             self: "Market", key: str, value: str, update: bool = True
     ) -> None:
-        async with self.cursor() as cur:
+        async with self.dbconn.cursor() as cur:
             if update:
                 await cur.execute(
                     """INSERT INTO lconfig (key, value) VALUES (%s, %s) ON CONFLICT (key) DO UPDATE SET (key, value) = (excluded.key, excluded.value)""",
@@ -50,7 +50,7 @@ class Market:
         self.__initfile = initfile
         self.__schemaname = f"m{marketname}"
         self.__dbinfo = dbinfo
-        self.__dbconn: Optional[psycopg.AsyncConnection] = None
+        self.dbconn: Optional[psycopg.AsyncConnection] = None
 
         self._price_stepsize_f = Market.PriceStepsizeFEval()  # Initial... won't work
         self._variancerate = 0.001  # too
@@ -124,11 +124,11 @@ class Market:
                 )
         self.__dbinfo["options"] = f"-c search_path={self.__schemaname}"
 
-        self.__dbconn = await psycopg.AsyncConnection.connect(
+        self.dbconn = await psycopg.AsyncConnection.connect(
             **self.__dbinfo, autocommit=True
         )
 
-        async with self.cursor() as cur:
+        async with self.dbconn.cursor() as cur:
             async with aiofiles.open(self.__initfile, encoding="UTF-8") as f:
                 await cur.execute(await f.read(), prepare=False)
 
@@ -137,23 +137,15 @@ class Market:
             await self.config_read("market_pricestepsize_fe")
         )
 
-    def cursor(
-            self, *args, **kwargs
-    ) -> psycopg.AsyncCursor | psycopg.AsyncServerCursor:
-        return self.__dbconn.cursor(*args, **kwargs)
-
-    def transaction(self, *args, **kwargs) -> AsyncIterator[AsyncTransaction]:
-        return self.__dbconn.transaction(*args, **kwargs)
-
     async def stockowns_get_company(self, cid: int):
-        async with self.cursor() as cur:
+        async with self.dbconn.cursor() as cur:
             await cur.execute(
                 """SELECT ticker, amount FROM stockowns WHERE cid = %s""", (cid,)
             )
             return await cur.fetchall()
 
     async def stockown_get_company(self, cid: int, ticker: str):
-        async with self.cursor() as cur:
+        async with self.dbconn.cursor() as cur:
             await cur.execute(
                 """SELECT coalesce((SELECT amount FROM stockowns WHERE cid = %s AND ticker = %s), 0)""",
                 (cid, ticker),
@@ -161,7 +153,7 @@ class Market:
             return (await cur.fetchone())[0]
 
     async def stockown_create(self, cid: int, ticker: str, amount: int):
-        async with self.cursor() as cur:
+        async with self.dbconn.cursor() as cur:
             await cur.execute(
                 """INSERT INTO stockowns (cid, ticker, amount) VALUES (%s, %s, %s)
                                  ON CONFLICT ON CONSTRAINT stockowns_cid_ticker_constraint DO UPDATE SET amount = stockowns.amount + excluded.amount""",
@@ -170,7 +162,7 @@ class Market:
         return amount
 
     async def stockown_delete(self, cid: int, ticker: str, amount: int):
-        async with self.cursor() as cur:
+        async with self.dbconn.cursor() as cur:
             await cur.execute(
                 """UPDATE stockowns SET amount = amount - %s WHERE cid = %s AND ticker = %s""",
                 (amount, cid, ticker),

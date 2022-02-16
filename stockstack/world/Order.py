@@ -15,142 +15,150 @@ if TYPE_CHECKING:
 
 
 async def _tick(market: "Market", ticker: str):
-    async with market.cursor() as cur:
+    async with market.dbconn.cursor() as cur:
         await cur.execute(
             """SELECT ots FROM stockorderspending WHERE ticker = %s ORDER BY ots ASC""",
             (ticker,),
         )
         ol = await cur.fetchall()
-    for ots in (o[0] for o in ol):
-        async with market.cursor():
-            async with market.transaction():
-                await cur.execute(
-                    """DELETE FROM stockorderspending WHERE ots = %s RETURNING ots, cid, ticker, amount, price""",
-                    (ots,),
-                )
-                await cur.execute(
-                    """INSERT INTO stockorders (ots, cid, ticker, amount, price) VALUES (%s, %s, %s, %s, %s) RETURNING ots, cid, ticker, amount, price""",
-                    await cur.fetchone(),
-                )
-                cur.row_factory = rows.dict_row
-                od = await cur.fetchone()
+        for ots in (o[0] for o in ol):
+            # async with market.dbconn.transaction():
+            await cur.execute(
+                """DELETE FROM stockorderspending WHERE ots = %s RETURNING ots, cid, ticker, amount, price""",
+                (ots,),
+            )
+            await cur.execute(
+                """INSERT INTO stockorders (ots, cid, ticker, amount, price) VALUES (%s, %s, %s, %s, %s) RETURNING ots, cid, ticker, amount, price""",
+                await cur.fetchone(),
+            )
+            cur.row_factory = rows.dict_row
+            od = await cur.fetchone()
+            #
             if od["amount"] > 0:  # buy
                 if od["price"] is not None:
                     await cur.execute(
-                        """SELECT ots, amount, price FROM stockorders WHERE ticker = %s AND ots < %s AND amount < 0 AND((price <= %s) OR (price IS NULL)) ORDER BY ASC NULLS FIRST""",
+                        """SELECT ots, amount, price FROM stockorders WHERE ticker = %s AND ots < %s AND amount < 0 AND((price <= %s) OR (price IS NULL)) ORDER BY price ASC NULLS FIRST""",
                         (ticker, od["ots"], od["price"]),
                     )
-                    async for oa in cur:
+                    r = await cur.fetchall()
+                    for oa in r:
                         amount = min(abs(oa["amount"]), abs(od["amount"]))
                         price = od["price"]
                         od["amount"] -= amount
                         if od["amount"] == 0:
                             break
-                        async with market.transaction():
-                            await cur.execute(
-                                """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
-                                (amount, oa["amount"]),
-                            )
-                            await cur.execute(
-                                """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
-                                (amount, od["amount"]),
-                            )
-                            await market.stockown_create(od["cid"], ticker, amount)
-                            await market.stockown_delete(oa["cid"], ticker, amount)
-                            await Wallet.deltamoney(od["cid"], -amount * price)
-                            await Wallet.deltamoney(od["cid"], +amount * price)
-                        await Stock.updlastp(market.cursor, ticker, price)
+                        # async with market.dbconn.transaction():
+                        await cur.execute(
+                            """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
+                            (amount, oa["amount"]),
+                        )
+                        await cur.execute(
+                            """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
+                            (amount, od["amount"]),
+                        )
+                        await market.stockown_create(od["cid"], ticker, amount)
+                        await market.stockown_delete(oa["cid"], ticker, amount)
+                        await Wallet.deltamoney(od["cid"], -amount * price)
+                        await Wallet.deltamoney(od["cid"], +amount * price)
+                        #
+                        await Stock.updlastp(market.dbconn.cursor, ticker, price)
                 else:
                     await cur.execute(
                         """SELECT ots, amount, price FROM stockorders WHERE ticker = %s AND ots < %s AND amount < 0 AND((price <= %s) OR (price IS NULL)) ORDER BY price ASC NULLS FIRST""",
                         (ticker, od["ots"], od["price"]),
                     )
-                    async for oa in cur:
+                    r = await cur.fetchall()
+                    for oa in r:
                         amount = min(abs(oa["amount"]), abs(od["amount"]))
                         price = oa["price"]
                         if price is None:
-                            price = await Stock.getlastp(market.cursor, ticker)
+                            price = await Stock.getlastp(market.dbconn.cursor, ticker)
                         od["amount"] -= amount
                         if od["amount"] == 0:
                             break
-                        async with market.transaction():
-                            await cur.execute(
-                                """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
-                                (amount, oa["amount"]),
-                            )
-                            await cur.execute(
-                                """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
-                                (amount, od["amount"]),
-                            )
-                            await market.stockown_create(od["cid"], ticker, amount)
-                            await market.stockown_delete(oa["cid"], ticker, amount)
-                            await Wallet.deltamoney(od["cid"], -amount * price)
-                            await Wallet.deltamoney(od["cid"], +amount * price)
-                        await Stock.updlastp(market.cursor, ticker, price)
+                        # async with market.dbconn.transaction():
+                        await cur.execute(
+                            """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
+                            (amount, oa["amount"]),
+                        )
+                        await cur.execute(
+                            """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
+                            (amount, od["amount"]),
+                        )
+                        await market.stockown_create(od["cid"], ticker, amount)
+                        await market.stockown_delete(oa["cid"], ticker, amount)
+                        await Wallet.deltamoney(od["cid"], -amount * price)
+                        await Wallet.deltamoney(od["cid"], +amount * price)
+                        #
+                        await Stock.updlastp(market.dbconn.cursor, ticker, price)
             elif od["amount"] < 0:  # sell
                 if od["price"] is not None:
                     await cur.execute(
                         """SELECT ots, amount, price FROM stockorders WHERE ticker = %s AND ots < %s AND amount > 0 AND((price >= %s) OR (price IS NULL)) ORDER BY price DESC NULLS FIRST""",
                         (ticker, od["ots"], od["price"]),
                     )
-                    async for oa in cur:
+                    r = await cur.fetchall()
+                    for oa in r:
                         amount = min(abs(oa["amount"]), abs(od["amount"]))
                         price = od["price"]
                         od["amount"] -= amount
                         if od["amount"] == 0:
                             break
-                        async with market.transaction():
-                            await cur.execute(
-                                """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
-                                (amount, oa["amount"]),
-                            )
-                            await cur.execute(
-                                """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
-                                (amount, od["amount"]),
-                            )
-                            await market.stockown_delete(od["cid"], ticker, amount)
-                            await market.stockown_create(oa["cid"], ticker, amount)
-                            await Wallet.deltamoney(od["cid"], +amount * price)
-                            await Wallet.deltamoney(od["cid"], -amount * price)
-                        await Stock.updlastp(market.cursor, ticker, price)
+                        # async with market.dbconn.transaction():
+                        await cur.execute(
+                            """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
+                            (amount, oa["amount"]),
+                        )
+                        await cur.execute(
+                            """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
+                            (amount, od["amount"]),
+                        )
+                        await market.stockown_delete(od["cid"], ticker, amount)
+                        await market.stockown_create(oa["cid"], ticker, amount)
+                        await Wallet.deltamoney(od["cid"], +amount * price)
+                        await Wallet.deltamoney(od["cid"], -amount * price)
+                        #
+                        await Stock.updlastp(market.dbconn.cursor, ticker, price)
                 else:
                     await cur.execute(
                         """SELECT ots, amount, price FROM stockorders WHERE ticker = %s AND ots < %s AND amount < 0 AND((price <= %s) OR (price IS NULL)) ORDER BY price DESC NULLS FIRST""",
                         (ticker, od["ots"], od["price"]),
                     )
-                    async for oa in cur:
+                    r = await cur.fetchall()
+                    for oa in r:
                         amount = min(abs(oa["amount"]), abs(od["amount"]))
                         price = oa["price"]
                         if price is None:
-                            price = await Stock.getlastp(market.cursor, ticker)
+                            price = await Stock.getlastp(market.dbconn.cursor, ticker)
                         od["amount"] -= amount
                         if od["amount"] == 0:
                             break
-                        async with market.transaction():
-                            await cur.execute(
-                                """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
-                                (amount, oa["amount"]),
-                            )
-                            await cur.execute(
-                                """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
-                                (amount, od["amount"]),
-                            )
-                            await market.stockown_delete(od["cid"], ticker, amount)
-                            await market.stockown_create(oa["cid"], ticker, amount)
-                            await Wallet.deltamoney(od["cid"], +amount * price)
-                            await Wallet.deltamoney(od["cid"], -amount * price)
-                        await Stock.updlastp(market.cursor, ticker, price)
+                        # async with market.dbconn.transaction():
+                        await cur.execute(
+                            """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
+                            (amount, oa["amount"]),
+                        )
+                        await cur.execute(
+                            """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
+                            (amount, od["amount"]),
+                        )
+                        await market.stockown_delete(od["cid"], ticker, amount)
+                        await market.stockown_create(oa["cid"], ticker, amount)
+                        await Wallet.deltamoney(od["cid"], +amount * price)
+                        await Wallet.deltamoney(od["cid"], -amount * price)
+                        #
+                        await Stock.updlastp(market.dbconn.cursor, ticker, price)
 
 
 async def tick(market: "Market"):
-    async with market.cursor() as cur:
+    async with market.dbconn.cursor() as cur:
         await cur.execute("""SELECT DISTINCT ticker FROM stockorderspending""")
-    td = await cur.fetchall()
-    await asyncio.gather([_tick(market, t[0]) for t in td])
+        td = await cur.fetchall()
+    await asyncio.gather(*[_tick(market, t[0]) for t in td])
 
 
 async def orderbuy_put(market: "Market", cid, ticker, amount, price):
-    async with market.cursor() as cur:
+    async with market.dbconn.cursor() as cur:
         await cur.execute(
             """INSERT INTO stockorderspending (cid, ticker, amount, price) VALUES (%s, %s, %s, %s)
             ON CONFLICT ON CONSTRAINT stockorderspending_cid_ticker_constraint DO UPDATE SET (amount, price) = (excluded.amount, excluded.price)""",
@@ -159,7 +167,7 @@ async def orderbuy_put(market: "Market", cid, ticker, amount, price):
 
 
 async def ordersell_put(market: "Market", cid, ticker, amount, price):
-    async with market.cursor() as cur:
+    async with market.dbconn.cursor() as cur:
         await cur.execute(
             """INSERT INTO stockorderspending (cid, ticker, amount, price) VALUES (%s, %s, %s, %s)
             ON CONFLICT ON CONSTRAINT stockorderspending_cid_ticker_constraint DO UPDATE SET (amount, price) = (excluded.amount, excluded.price)""",
