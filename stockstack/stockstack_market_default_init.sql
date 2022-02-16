@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS stocks
     name         TEXT UNIQUE      NOT NULL,
     cid          INT REFERENCES world.companies (cid),
     parvalue     INT DEFAULT 5000 NOT NULL,
-    closingprice INT DEFAULT 5000 NOT NULL
+    closingprice INT DEFAULT 5000 NOT NULL,
+    lastprice    INT DEFAULT 5000 NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS stockowns
@@ -28,9 +29,19 @@ CREATE TABLE IF NOT EXISTS stockowns
 
 CREATE TABLE IF NOT EXISTS stockorders
 (
+    ots    INT PRIMARY KEY,
     cid    INT REFERENCES world.companies (cid),
     ticker TEXT REFERENCES stocks (ticker),
     amount INT NOT NULL,
     price  INT,
     CONSTRAINT stockorders_cid_ticker_constraint UNIQUE (cid, ticker)
+);
+CREATE TABLE IF NOT EXISTS stockorderspending
+(
+    ots    SERIAL PRIMARY KEY,
+    cid    INT REFERENCES world.companies (cid),
+    ticker TEXT REFERENCES stocks (ticker),
+    amount INT NOT NULL,
+    price  INT,
+    CONSTRAINT stockorderspending_cid_ticker_constraint UNIQUE (cid, ticker)
 );

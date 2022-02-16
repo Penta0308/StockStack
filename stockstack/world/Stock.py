@@ -14,6 +14,7 @@ class Stock:
             curfactory: Callable[[], psycopg.AsyncCursor],
             ticker: str,
             name: str,
+            cid: int,
             parvalue: int | float = 5000,
             price: int | float | None = None,
     ):
@@ -21,8 +22,8 @@ class Stock:
             price = parvalue
         async with curfactory() as cur:
             await cur.execute(
-                """INSERT INTO market.stocks (ticker, parvalue, closingprice) VALUES (%s, %s, %s) RETURNING ticker""",
-                (ticker, name, parvalue, price),
+                """INSERT INTO stocks (ticker, name, cid, parvalue, closingprice, lastprice) VALUES (%s, %s, %s, %s, %s, %s) RETURNING ticker""",
+                (ticker, name, cid, parvalue, price, price),
             )
             return (await cur.fetchone())[0]
 
@@ -31,7 +32,7 @@ class Stock:
             curfactory: Callable[[], psycopg.AsyncCursor],
     ):
         async with curfactory() as cur:
-            await cur.execute("""SELECT ARRAY(SELECT ticker FROM market.stocks)""")
+            await cur.execute("""SELECT ARRAY(SELECT ticker FROM stocks)""")
             return (await cur.fetchone())[0]
 
     @staticmethod
@@ -39,10 +40,27 @@ class Stock:
         async with curfactory() as cur:
             cur.row_factory = rows.dict_row
             await cur.execute(
-                """SELECT ticker, cid, totalamount, parvalue, closingprice FROM market.stocks WHERE ticker = %s""",
+                """SELECT ticker, cid, parvalue, closingprice, lastprice FROM stocks WHERE ticker = %s""",
                 (ticker,),
             )
             return await cur.fetchone()
+
+    @staticmethod
+    async def getlastp(curfactory: Callable[[], psycopg.AsyncCursor], ticker: str):
+        async with curfactory() as cur:
+            await cur.execute(
+                """SELECT lastprice FROM stocks WHERE ticker = %s""",
+                (ticker,),
+            )
+            return (await cur.fetchone())[0]
+
+    @staticmethod
+    async def updlastp(curfactory: Callable[[], psycopg.AsyncCursor], ticker: str, price: int):
+        async with curfactory() as cur:
+            await cur.execute(
+                """UPDATE stocks SET lastprice = %s WHERE ticker = %s""",
+                (price, ticker),
+            )
 
     """"async def event_close(self):
         self.refprice = self.curprice
