@@ -55,7 +55,9 @@ class Stock:
             return (await cur.fetchone())[0]
 
     @staticmethod
-    async def updlastp(curfactory: Callable[[], psycopg.AsyncCursor], ticker: str, price: int):
+    async def updlastp(
+            curfactory: Callable[[], psycopg.AsyncCursor], ticker: str, price: int
+    ):
         async with curfactory() as cur:
             await cur.execute(
                 """UPDATE stocks SET lastprice = %s WHERE ticker = %s""",
