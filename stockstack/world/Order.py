@@ -52,6 +52,7 @@ async def _tick(market: "Market", ticker: str):
                         await market.stockown_delete(oa["cid"], ticker, amount)
                         await Wallet.deltamoney(od["cid"], -amount * price)
                         await Wallet.deltamoney(od["cid"], +amount * price)
+                        Settings.logger.info(f"Trading {ticker} {amount} {oa['cid']} -> {od['cid']} by {price}/unit")
                         #
                         await Stock.updlastp(market.dbconn.cursor, ticker, price)
                         od["amount"] -= amount
@@ -81,6 +82,7 @@ async def _tick(market: "Market", ticker: str):
                         await market.stockown_delete(oa["cid"], ticker, amount)
                         await Wallet.deltamoney(od["cid"], -amount * price)
                         await Wallet.deltamoney(od["cid"], +amount * price)
+                        Settings.logger.info(f"Trading {ticker} {amount} {oa['cid']} -> {od['cid']} by {price}/unit")
                         #
                         await Stock.updlastp(market.dbconn.cursor, ticker, price)
                         od["amount"] -= amount
@@ -109,6 +111,7 @@ async def _tick(market: "Market", ticker: str):
                         await market.stockown_create(oa["cid"], ticker, amount)
                         await Wallet.deltamoney(od["cid"], +amount * price)
                         await Wallet.deltamoney(od["cid"], -amount * price)
+                        Settings.logger.info(f"Trading {ticker} {amount} {od['cid']} -> {oa['cid']} by {price}/unit")
                         #
                         await Stock.updlastp(market.dbconn.cursor, ticker, price)
                         od["amount"] -= amount
@@ -138,6 +141,7 @@ async def _tick(market: "Market", ticker: str):
                         await market.stockown_create(oa["cid"], ticker, amount)
                         await Wallet.deltamoney(od["cid"], +amount * price)
                         await Wallet.deltamoney(od["cid"], -amount * price)
+                        Settings.logger.info(f"Trading {ticker} {amount} {od['cid']} -> {oa['cid']} by {price}/unit")
                         #
                         await Stock.updlastp(market.dbconn.cursor, ticker, price)
                         od["amount"] -= amount
