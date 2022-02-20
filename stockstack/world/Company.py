@@ -1,6 +1,7 @@
 import collections
 import functools
-from typing import Callable, TypedDict, List, Dict
+import math
+from typing import Callable, TypedDict, List, Dict, Any
 
 import numpy as np
 import psycopg
@@ -19,7 +20,7 @@ class DictCompanyFactory(TypedDict):
 
 class DictFactory(TypedDict):
     fid: int
-    consume: Dict[str, int]
+    consume: Dict[str, int | Any]
     produce: Dict[str, int]
     unitprice: int
 
@@ -78,16 +79,10 @@ async def _goodcount(curfactory: Callable[[], psycopg.AsyncCursor]) -> int:
 
 async def tick(curfactory: Callable[[], psycopg.AsyncCursor]):
     Settings.logger.info("Company tick")
-    '''async with curfactory() as cur:
-        await cur.execute("""UPDATE world.companies SET outventory = ARRAY(
-            SELECT a.elem * (SELECT 1 - decayrate FROM world.goods WHERE gid = a.nr - 1) FROM
-                                    unnest(outventory) WITH ORDINALITY AS a(elem, nr))""")'''  # Decay Code
-
-    await _tick_consumer(curfactory)
     for cid in await searchall(curfactory):
         cid = cid[0]
         await _tick(curfactory, cid)
-    await labordecay(curfactory)
+    await _tick_consumer(curfactory)
 
 
 async def labordecay(curfactory: Callable[[], psycopg.AsyncCursor]):
@@ -112,7 +107,7 @@ async def _tick_consumer(curfactory: Callable[[], psycopg.AsyncCursor]):
     rq -= collections.Counter(dict(await getresources(0)))
 
     for gid, amount in rq.items():
-        Settings.logger.info(f"Consumer Wants [Good {gid}]x{amount}")
+        Settings.logger.info(f"Consumer Wants [{gid}]x{amount}")
         await orderbuy_resource(0, gid, amount, None)  # TODO: Price Negotiation
 
     tprod = cf["factorysize"]
@@ -121,14 +116,17 @@ async def _tick_consumer(curfactory: Callable[[], psycopg.AsyncCursor]):
     await consumeresource(0, 'labor', await getresource(0, 'labor'))
 
     tprod = int(tprod)
+    ubprice = 0.0
     for gid, uamount in f["consume"].items():
         amount = await getresource(0, gid)
+        if tprod * amount <= 0: continue
+        ubprice += await getresourceunitprice(0, gid) * uamount
         await consumeresource(0, gid, amount)
-        Settings.logger.info(f"Consumer Consuming [Good {gid}]x{amount}")
+        Settings.logger.info(f"Consumer Consuming [{gid}]x{amount}")
     for gid, uamount in f["produce"].items():
-        a = await produceresource(0, gid, uamount * tprod)
-        Settings.logger.info(f"Company {0} Producing [Good {gid}]x{a}")
-        await ordersell_resource(0, gid, await getresource(0, gid))
+        a = await produceresource(0, gid, uamount * tprod, math.ceil(ubprice))
+        Settings.logger.info(f"Consumer Producing [{gid}]x{a}")
+        await ordersell_resource(0, gid, await getresource(0, gid), math.ceil(await getresourceunitprice(0, gid)))
 
 
 async def _tick(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
@@ -160,19 +158,22 @@ async def _tick(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
 
         for gid, uamount in f["produce"].items():
             moutv = await getresource(cid, gid) / float(uamount * cf["factorysize"])
-            if moutv >= 2:
-                tprod *= max(0, 3 - moutv)
+            tprod = min(max(0, tprod * (1 - moutv)), tprod)
 
         for gid, uamount in f["consume"].items():
             tprod = min(tprod, await getresource(cid, gid) / float(uamount))
 
         tprod = int(tprod)
+        ubprice = 0.0
         for gid, uamount in f["consume"].items():
+            if uamount * tprod <= 0: continue
+            ubprice += await getresourceunitprice(cid, gid) * uamount
             await consumeresource(cid, gid, uamount * tprod)
         for gid, uamount in f["produce"].items():
-            a = await produceresource(cid, gid, uamount * tprod)
-            Settings.logger.info(f"Company {cid} Producing [Good {gid}]x{a}")
-            await ordersell_resource(cid, gid, await getresource(cid, gid))
+            a = await produceresource(cid, gid, uamount * tprod, math.ceil(ubprice))
+            Settings.logger.info(f"Company {cid} Producing [{gid}]x{a}")
+            await ordersell_resource(cid, gid, await getresource(cid, gid),
+                                     math.ceil(await getresourceunitprice(cid, gid)))
 
     if await Wallet.getmoney(cid) <= 50000000:
         pass  # TODO: 유상증자
@@ -221,17 +222,21 @@ async def getresource(cid: int, rid: str):
     return await Settings.markets["spot"].stockown_get_company(cid, rid)
 
 
-async def produceresource(cid: int, rid: str, amount: int):
-    return await Settings.markets["spot"].stockown_create(cid, rid, amount)
+async def getresourceunitprice(cid: int, rid: str):
+    return await Settings.markets["spot"].stockown_priceperunit(cid, rid)
+
+
+async def produceresource(cid: int, rid: str, amount: int, regprice: int):
+    return await Settings.markets["spot"].stockown_create(cid, rid, amount, regprice)
 
 
 async def consumeresource(cid: int, rid: str, amount: int):
     return await Settings.markets["spot"].stockown_delete(cid, rid, amount)
 
 
-async def orderbuy_resource(cid: int, rid: str, amount: int, price: int | None = None):
+async def orderbuy_resource(cid: int, rid: str, amount: int, price: int | None):
     await Order.orderbuy_put(Settings.markets["spot"], cid, rid, amount, price)
 
 
-async def ordersell_resource(cid: int, rid: str, amount: int, price: int | None = None):
+async def ordersell_resource(cid: int, rid: str, amount: int, price: int | None):
     await Order.ordersell_put(Settings.markets["spot"], cid, rid, amount, price)

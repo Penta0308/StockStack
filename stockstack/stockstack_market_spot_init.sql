@@ -21,9 +21,10 @@ CREATE TABLE IF NOT EXISTS stocks
 
 CREATE TABLE IF NOT EXISTS stockowns
 (
-    cid    INT REFERENCES world.companies (cid),
-    ticker TEXT REFERENCES stocks (ticker),
-    amount INT DEFAULT 0 NOT NULL,
+    cid      INT REFERENCES world.companies (cid),
+    ticker   TEXT REFERENCES stocks (ticker),
+    amount   INT DEFAULT 0 NOT NULL,
+    totprice INT DEFAULT 0 NOT NULL,
     CONSTRAINT stockowns_cid_ticker_constraint UNIQUE (cid, ticker)
 );
 

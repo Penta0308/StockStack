@@ -66,12 +66,13 @@ class Market:
             else:
                 await Order.tick(self)  # 낮 틱 주문처리
             pass
-        if i == 29:  # 장후동시호가 3초
+        if i == 28:  # 장후동시호가 3초
             await Order.tick(self)  # 낮 마지막 틱 주문처리
             pass
-        if i >= 30:  # 밤 3초
-            if i == 30:  # 밤 첫 틱
-                await Order.tick(self)  # 장후동시호가 주문처리
+        if i == 29:  # 밤 첫 틱
+            await Order.tick(self)  # 장후동시호가 주문처리
+            pass
+        if i == 30:
             pass
 
     class PriceStepsizeFEval:
@@ -153,19 +154,27 @@ class Market:
             )
             return (await cur.fetchone())[0]
 
-    async def stockown_create(self, cid: int, ticker: str, amount: int):
+    async def stockown_priceperunit(self, cid: int, ticker: str):
         async with self.dbconn.cursor() as cur:
             await cur.execute(
-                """INSERT INTO stockowns (cid, ticker, amount) VALUES (%s, %s, %s)
-                                 ON CONFLICT ON CONSTRAINT stockowns_cid_ticker_constraint DO UPDATE SET amount = stockowns.amount + excluded.amount""",
-                (cid, ticker, amount),
+                """SELECT totprice / amount FROM stockowns WHERE cid = %s AND ticker = %s""",
+                (cid, ticker),
+            )
+            return (await cur.fetchone())[0]
+
+    async def stockown_create(self, cid: int, ticker: str, amount: int, regprice: int):
+        async with self.dbconn.cursor() as cur:
+            await cur.execute(
+                """INSERT INTO stockowns (cid, ticker, amount, totprice) VALUES (%s, %s, %s, %s)
+                                 ON CONFLICT ON CONSTRAINT stockowns_cid_ticker_constraint DO UPDATE SET amount = stockowns.amount + excluded.amount, totprice = stockowns.totprice + excluded.totprice""",
+                (cid, ticker, amount, regprice * amount),
             )
         return amount
 
     async def stockown_delete(self, cid: int, ticker: str, amount: int):
         async with self.dbconn.cursor() as cur:
             await cur.execute(
-                """UPDATE stockowns SET amount = amount - %s WHERE (cid = %s) AND (ticker = %s)""",
-                (amount, cid, ticker),
+                """UPDATE stockowns SET amount = amount - %s, totprice = totprice - %s WHERE (cid = %s) AND (ticker = %s)""",
+                (amount, await self.stockown_priceperunit(cid, ticker) * amount, cid, ticker),
             )
         return amount
