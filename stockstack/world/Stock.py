@@ -44,10 +44,32 @@ async def getinfo(curfactory: Callable[[], psycopg.AsyncCursor], ticker: str):
         return await cur.fetchone()
 
 
+async def gettickerfromcid(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
+    async with curfactory() as cur:
+        await cur.execute(
+            """SELECT ticker FROM stocks WHERE cid = %s""",
+            (cid,),
+        )
+        v = await cur.fetchone()
+        if v is None:
+            return None
+        else:
+            return v[0]
+
+
 async def getlastp(curfactory: Callable[[], psycopg.AsyncCursor], ticker: str):
     async with curfactory() as cur:
         await cur.execute(
             """SELECT lastprice FROM stocks WHERE ticker = %s""",
+            (ticker,),
+        )
+        return (await cur.fetchone())[0]
+
+
+async def getclosp(curfactory: Callable[[], psycopg.AsyncCursor], ticker: str):
+    async with curfactory() as cur:
+        await cur.execute(
+            """SELECT closingprice FROM stocks WHERE ticker = %s""",
             (ticker,),
         )
         return (await cur.fetchone())[0]
@@ -60,6 +82,15 @@ async def updlastp(
         await cur.execute(
             """UPDATE stocks SET lastprice = %s WHERE ticker = %s""",
             (price, ticker),
+        )
+
+
+async def updclosp(
+        curfactory: Callable[[], psycopg.AsyncCursor]):
+    async with curfactory() as cur:
+        # noinspection SqlWithoutWhere
+        await cur.execute(
+            """UPDATE stocks SET closingprice = lastprice"""
         )
 
 

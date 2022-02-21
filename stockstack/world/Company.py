@@ -1,15 +1,14 @@
 import collections
-import functools
 import json
 import math
 from typing import Callable, TypedDict, List, Dict, Any
 
-import numpy as np
 import psycopg
 from psycopg import rows
 
 from stockstack.settings import Settings
-from stockstack.world import Wallet, Order, WorldConfig, Stock
+from stockstack.world import Wallet, Order, Stock
+from stockstack.util import tickergenerator
 
 
 class DictCompanyFactory(TypedDict):
@@ -24,6 +23,7 @@ class DictFactory(TypedDict):
     consume: Dict[str, int | Any]
     produce: Dict[str, int]
     unitprice: int
+    worktype: List[int]
 
 
 class DictGood(TypedDict):
@@ -167,6 +167,7 @@ async def _order(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
 
 
 async def _produce(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
+    factadvpressure = []
     for cf in await _companyfactories(curfactory, cid):
         tprod = cf["factorysize"]
         f = await _factory(curfactory, cf["fid"])
@@ -186,6 +187,9 @@ async def _produce(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
                 prd = max(0.0, prd - 0.01)
             elif moutv < 1.125:
                 prd = min(1.0, prd + 0.01)
+                if prd == 1.0:
+                    factadvpressure.append(cf["fid"])
+
             pricedelta[gid] = prd
 
             tprod = min(max(0, tprod * min(1, 2 - moutv)), tprod)
@@ -210,10 +214,33 @@ async def _produce(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
         await updboard(curfactory, cid, {"sellpricedelta": pricedelta})
         await labordecay(curfactory, cid)
 
-    if await Wallet.getmoney(cid) <= 50000000:
-        pass  # TODO: 유상증자
-    else:
-        pass  # TODO: 성장
+    for fid in factadvpressure:
+        f = await _factory(curfactory, fid)
+        reqm = f["unitprice"]
+        if await Wallet.getmoney(cid) > reqm:
+            await Wallet.deltamoney(cid, -reqm * 10)
+            async with curfactory() as cur:
+                await cur.execute(
+                    """UPDATE world.companyfactories SET factorysize = factorysize + %s WHERE cid = %s AND fid = %s""",
+                    (10, cid, fid))
+
+    if await Wallet.getmoney(cid) <= 5000000:
+        if (await getinfo(curfactory, cid))["listable"]:
+            stockmarketcurfactory = Settings.markets["stock"].dbconn.cursor
+            ticker = await Stock.gettickerfromcid(stockmarketcurfactory, cid)
+            if ticker is None:
+                n = (await getinfo(curfactory, cid))["name"]
+                ticker = await Stock.create(stockmarketcurfactory, tickergenerator.korean_word_to_initials(n), n, cid,
+                                            parvalue=100)
+            amt = max(10000 - await Settings.markets["stock"].stockown_get_company(cid, ticker), 0)
+            if amt > 0:
+                await Settings.markets["stock"].stockown_create(cid, ticker, amt, None)
+                Settings.logger.info(f"Company {cid} Creating new paper {amt}")
+            await Order.ordersell_put(
+                Settings.markets["stock"],
+                cid, ticker,
+                await Settings.markets["stock"].stockown_get_company(cid, ticker),
+                await Stock.getclosp(stockmarketcurfactory, ticker))
 
 
 async def create(
@@ -244,7 +271,7 @@ async def getinfo(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
     async with curfactory() as cur:
         cur.row_factory = rows.dict_row
         await cur.execute(
-            """SELECT cid, name, worktype FROM world.companies WHERE cid = %s""", (cid,)
+            """SELECT cid, name, worktype, listable FROM world.companies WHERE cid = %s""", (cid,)
         )
         return await cur.fetchone()
 

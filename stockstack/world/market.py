@@ -6,7 +6,7 @@ import aiofiles
 import psycopg
 from psycopg import AsyncTransaction
 
-from stockstack.world import Order
+from stockstack.world import Order, Stock
 
 
 class Market:
@@ -73,6 +73,7 @@ class Market:
             await Order.tick(self)  # 장후동시호가 주문처리
             pass
         if i == 30:
+            await Stock.updclosp(self.dbconn.cursor)
             pass
 
     class PriceStepsizeFEval:
@@ -162,16 +163,26 @@ class Market:
             )
             return (await cur.fetchone())[0]
 
-    async def stockown_create(self, cid: int, ticker: str, amount: int, regprice: int):
-        async with self.dbconn.cursor() as cur:
-            await cur.execute(
-                """INSERT INTO stockowns (cid, ticker, amount, amprice) VALUES (%s, %s, %s, %s)
-                                 ON CONFLICT ON CONSTRAINT stockowns_cid_ticker_constraint DO UPDATE SET 
-                                 amount = stockowns.amount + excluded.amount, 
-                                 amprice = (stockowns.amprice * stockowns.amount + excluded.amprice * excluded.amount) / (stockowns.amount + excluded.amount)""",
-                (cid, ticker, amount, regprice),
-            )
-        return amount
+    async def stockown_create(self, cid: int, ticker: str, amount: int, regprice: int | None):
+        if regprice is None:
+            async with self.dbconn.cursor() as cur:
+                await cur.execute(
+                    """INSERT INTO stockowns (cid, ticker, amount, amprice) VALUES (%s, %s, %s, %s)
+                                     ON CONFLICT ON CONSTRAINT stockowns_cid_ticker_constraint DO UPDATE SET 
+                                     amount = stockowns.amount + excluded.amount""",
+                    (cid, ticker, amount, regprice),
+                )
+            return amount
+        else:
+            async with self.dbconn.cursor() as cur:
+                await cur.execute(
+                    """INSERT INTO stockowns (cid, ticker, amount, amprice) VALUES (%s, %s, %s, %s)
+                                     ON CONFLICT ON CONSTRAINT stockowns_cid_ticker_constraint DO UPDATE SET 
+                                     amount = stockowns.amount + excluded.amount, 
+                                     amprice = (stockowns.amprice * stockowns.amount + excluded.amprice * excluded.amount) / (stockowns.amount + excluded.amount)""",
+                    (cid, ticker, amount, regprice),
+                )
+            return amount
 
     async def stockown_delete(self, cid: int, ticker: str, amount: int):
         async with self.dbconn.cursor() as cur:

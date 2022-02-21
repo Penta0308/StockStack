@@ -5,13 +5,14 @@ CREATE TABLE IF NOT EXISTS world.factories
     fid       INT PRIMARY KEY,
     consume   JSONB NOT NULL DEFAULT '{}',
     produce   JSONB NOT NULL DEFAULT '{}',
-    unitprice INT   NOT NULL DEFAULT 0
+    unitprice INT   NOT NULL DEFAULT 0,
+    worktype  INT[1]         DEFAULT '{}' NOT NULL
 );
 
-INSERT INTO world.factories (fid, produce, unitprice)
+INSERT INTO world.factories (fid, produce, unitprice, worktype)
 VALUES (0, '{
   "labor": 1
-}'::JSONB, 0)
+}'::JSONB, 0, '{0}'::INT[])
 ON CONFLICT DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS world.config
