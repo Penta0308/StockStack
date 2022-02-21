@@ -78,10 +78,11 @@ async def _goodcount(curfactory: Callable[[], psycopg.AsyncCursor]) -> int:
         return (await cur.fetchone())[0]'''
 
 
-async def labordecay(curfactory: Callable[[], psycopg.AsyncCursor]):
-    Settings.logger.info("Labor decay")
+async def labordecay(curfactory: Callable[[], psycopg.AsyncCursor], cid: int = 0):
+    Settings.logger.info(f"Labor decay {cid}")
     async with curfactory() as cur:
-        await cur.execute("""UPDATE mspot.stockowns SET amount = 0 WHERE ticker = 'labor' AND cid = 0""")  # Decay Code
+        await cur.execute("""UPDATE mspot.stockowns SET amount = 0 WHERE ticker = 'labor' AND cid = %s""",
+                          (cid,))  # Decay Code
 
 
 async def seq1(curfactory: Callable[[], psycopg.AsyncCursor]):
@@ -181,10 +182,10 @@ async def _produce(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
             if prd is None:
                 prd = 0.0
 
-            if moutv > 1.0:  # 남음
+            if moutv > 1.25:
                 prd = max(0.0, prd - 0.01)
-            elif moutv < 0.1:
-                prd = max(0.0, prd + 0.01)
+            elif moutv < 1.125:
+                prd = min(1.0, prd + 0.01)
             pricedelta[gid] = prd
 
             tprod = min(max(0, tprod * min(1, 2 - moutv)), tprod)
@@ -207,6 +208,7 @@ async def _produce(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
                                      math.ceil(await getresourceunitprice(cid, gid) * (1.0 + pricedelta[gid])))
 
         await updboard(curfactory, cid, {"sellpricedelta": pricedelta})
+        await labordecay(curfactory, cid)
 
     if await Wallet.getmoney(cid) <= 50000000:
         pass  # TODO: 유상증자

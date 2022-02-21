@@ -72,9 +72,9 @@ def run():
                 await Company.seq2(cursor)
             # if i == 30:
             #    await Company.labordecay(cursor)
-
+        await mastertick(i)
         await asyncio.gather(
-            mastertick(i), *[market.tick(i) for market in Settings.markets.values()]
+            *[market.tick(i) for market in Settings.markets.values()]
         )
         if i >= 30:
             return 0, 1
