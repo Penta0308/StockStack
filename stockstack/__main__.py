@@ -81,7 +81,9 @@ def run():
         else:
             return i + 1, 0.001
 
-    asyncio.run(_run(), debug=True)
+    asyncio.run(_run(),
+                # debug=True,
+                )
 
 
 if __name__ == "__main__":

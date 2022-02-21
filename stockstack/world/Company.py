@@ -105,9 +105,10 @@ async def _order_consumer(curfactory: Callable[[], psycopg.AsyncCursor]):
     pu = cf["factorysize"]
     f = await _factory(curfactory, cf["fid"])
     for gid, d in f["consume"].items():
-        Q = math.ceil(
-            float(max(await Wallet.getmoney(0), 0)) / await Stock.getlastp(Settings.markets["spot"].dbconn.cursor,
-                                                                           gid) / d["amount"])
+        Q = math.floor(
+            float(max(await Wallet.getmoney(0) - d["fromper"] * cf["factorysize"], 0)) / await Stock.getlastp(
+                Settings.markets["spot"].dbconn.cursor,
+                gid) / d["amount"])
         if gid in rq.keys():
             rq[gid] += Q
         else:
@@ -142,6 +143,7 @@ async def _produce_consumer(curfactory: Callable[[], psycopg.AsyncCursor]):
                                              (await Stock.getinfo(Settings.markets["spot"].dbconn.cursor, gid))[
                                                  'parvalue']))
         Settings.logger.info(f"Consumer Producing [{gid}]x{a}")
+    for gid, uamount in f["produce"].items():
         await ordersell_resource(0, gid, await getresource(0, gid), math.ceil(await getresourceunitprice(0, gid)))
 
 
@@ -200,6 +202,7 @@ async def _produce(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
             if uamount * tprod <= 0: continue
             a = await produceresource(cid, gid, uamount * tprod, math.ceil(ubprice / uamount))
             Settings.logger.info(f"Company {cid} Producing [{gid}]x{a}")
+        for gid, uamount in f["produce"].items():
             await ordersell_resource(cid, gid, await getresource(cid, gid),
                                      math.ceil(await getresourceunitprice(cid, gid) * (1.0 + pricedelta[gid])))
 
