@@ -21,10 +21,10 @@ CREATE TABLE IF NOT EXISTS stocks
 
 CREATE TABLE IF NOT EXISTS stockowns
 (
-    cid      INT REFERENCES world.companies (cid),
-    ticker   TEXT REFERENCES stocks (ticker),
-    amount   INT DEFAULT 0 NOT NULL,
-    totprice INT DEFAULT 0 NOT NULL,
+    cid     INT REFERENCES world.companies (cid),
+    ticker  TEXT REFERENCES stocks (ticker),
+    amount  INT   DEFAULT 0 NOT NULL,
+    amprice FLOAT DEFAULT 0 NOT NULL,
     CONSTRAINT stockowns_cid_ticker_constraint UNIQUE (cid, ticker)
 );
 
@@ -46,14 +46,14 @@ CREATE TABLE IF NOT EXISTS stockorderspending
     CONSTRAINT stockorderspending_cid_ticker_constraint UNIQUE (cid, ticker)
 );
 
-INSERT INTO stocks (ticker, name, closingprice)
-VALUES ('labor', 'Labor', 200),
-       ('agri', 'Agricultural products', 55),
-       ('croil', 'Crude Oil', 100),
-       ('metal', 'Metal', 120),
-       ('groc', 'Grocery', 110),
-       ('cloth', 'Clothing', 100),
-       ('fuel', 'Fuel', 130),
-       ('chem', 'Chemicals', 100),
-       ('elect', 'Electronics', 300)
+INSERT INTO stocks (ticker, name, closingprice, parvalue)
+VALUES ('labor', 'Labor', 200, 200),
+       ('agri', 'Agricultural products', 55, default),
+       ('croil', 'Crude Oil', 100, default),
+       ('metal', 'Metal', 120, default),
+       ('groc', 'Grocery', 110, default),
+       ('cloth', 'Clothing', 100, default),
+       ('fuel', 'Fuel', 130, default),
+       ('chem', 'Chemicals', 100, default),
+       ('elect', 'Electronics', 300, default)
 ON CONFLICT (ticker) DO NOTHING;

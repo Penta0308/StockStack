@@ -157,7 +157,7 @@ class Market:
     async def stockown_priceperunit(self, cid: int, ticker: str):
         async with self.dbconn.cursor() as cur:
             await cur.execute(
-                """SELECT totprice / amount FROM stockowns WHERE cid = %s AND ticker = %s""",
+                """SELECT amprice FROM stockowns WHERE cid = %s AND ticker = %s""",
                 (cid, ticker),
             )
             return (await cur.fetchone())[0]
@@ -165,16 +165,18 @@ class Market:
     async def stockown_create(self, cid: int, ticker: str, amount: int, regprice: int):
         async with self.dbconn.cursor() as cur:
             await cur.execute(
-                """INSERT INTO stockowns (cid, ticker, amount, totprice) VALUES (%s, %s, %s, %s)
-                                 ON CONFLICT ON CONSTRAINT stockowns_cid_ticker_constraint DO UPDATE SET amount = stockowns.amount + excluded.amount, totprice = stockowns.totprice + excluded.totprice""",
-                (cid, ticker, amount, regprice * amount),
+                """INSERT INTO stockowns (cid, ticker, amount, amprice) VALUES (%s, %s, %s, %s)
+                                 ON CONFLICT ON CONSTRAINT stockowns_cid_ticker_constraint DO UPDATE SET 
+                                 amount = stockowns.amount + excluded.amount, 
+                                 amprice = (stockowns.amprice * stockowns.amount + excluded.amprice * excluded.amount) / (stockowns.amount + excluded.amount)""",
+                (cid, ticker, amount, regprice),
             )
         return amount
 
     async def stockown_delete(self, cid: int, ticker: str, amount: int):
         async with self.dbconn.cursor() as cur:
             await cur.execute(
-                """UPDATE stockowns SET amount = amount - %s, totprice = totprice - %s WHERE (cid = %s) AND (ticker = %s)""",
-                (amount, await self.stockown_priceperunit(cid, ticker) * amount, cid, ticker),
+                """UPDATE stockowns SET amount = amount - %s WHERE (cid = %s) AND (ticker = %s)""",
+                (amount, cid, ticker),
             )
         return amount

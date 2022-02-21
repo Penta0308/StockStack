@@ -1,5 +1,6 @@
 import collections
 import functools
+import json
 import math
 from typing import Callable, TypedDict, List, Dict, Any
 
@@ -8,7 +9,7 @@ import psycopg
 from psycopg import rows
 
 from stockstack.settings import Settings
-from stockstack.world import Wallet, Order
+from stockstack.world import Wallet, Order, WorldConfig, Stock
 
 
 class DictCompanyFactory(TypedDict):
@@ -77,32 +78,40 @@ async def _goodcount(curfactory: Callable[[], psycopg.AsyncCursor]) -> int:
         return (await cur.fetchone())[0]'''
 
 
-async def tick(curfactory: Callable[[], psycopg.AsyncCursor]):
-    Settings.logger.info("Company tick")
-    for cid in await searchall(curfactory):
-        cid = cid[0]
-        await _tick(curfactory, cid)
-    await _tick_consumer(curfactory)
-
-
 async def labordecay(curfactory: Callable[[], psycopg.AsyncCursor]):
     Settings.logger.info("Labor decay")
     async with curfactory() as cur:
-        await cur.execute("""DELETE FROM mspot.stockowns WHERE ticker = 'labor' AND cid != 0""")  # Decay Code
+        await cur.execute("""UPDATE mspot.stockowns SET amount = 0 WHERE ticker = 'labor' AND cid = 0""")  # Decay Code
 
 
-async def _tick_consumer(curfactory: Callable[[], psycopg.AsyncCursor]):
-    cf = (await _companyfactories(curfactory, 0))[0]
+async def seq1(curfactory: Callable[[], psycopg.AsyncCursor]):
+    Settings.logger.info("Company tick seq1")
+    await _order_consumer(curfactory)
+    for cid in (cid[0] for cid in await searchall(curfactory)):
+        await _order(curfactory, cid)
+
+
+async def seq2(curfactory: Callable[[], psycopg.AsyncCursor]):
+    Settings.logger.info("Company tick seq2")
+    await _produce_consumer(curfactory)
+    for cid in (cid[0] for cid in await searchall(curfactory)):
+        await _produce(curfactory, cid)
+
+
+async def _order_consumer(curfactory: Callable[[], psycopg.AsyncCursor]):
     rq = collections.Counter()
 
-    for cf in await _companyfactories(curfactory, 0):
-        pu = cf["factorysize"]
-        f = await _factory(curfactory, cf["fid"])
-        for gid, amount in f["consume"].items():
-            if gid in rq.keys():
-                rq[gid] += amount * pu
-            else:
-                rq[gid] = amount * pu
+    cf = (await _companyfactories(curfactory, 0))[0]
+    pu = cf["factorysize"]
+    f = await _factory(curfactory, cf["fid"])
+    for gid, d in f["consume"].items():
+        Q = math.ceil(
+            float(max(await Wallet.getmoney(0), 0)) / await Stock.getlastp(Settings.markets["spot"].dbconn.cursor,
+                                                                           gid) / d["amount"])
+        if gid in rq.keys():
+            rq[gid] += Q
+        else:
+            rq[gid] = Q
 
     rq -= collections.Counter(dict(await getresources(0)))
 
@@ -110,34 +119,33 @@ async def _tick_consumer(curfactory: Callable[[], psycopg.AsyncCursor]):
         Settings.logger.info(f"Consumer Wants [{gid}]x{amount}")
         await orderbuy_resource(0, gid, amount, None)  # TODO: Price Negotiation
 
+
+async def _produce_consumer(curfactory: Callable[[], psycopg.AsyncCursor]):
+    cf = (await _companyfactories(curfactory, 0))[0]
+
     tprod = cf["factorysize"]
     f = await _factory(curfactory, cf["fid"])
 
-    await consumeresource(0, 'labor', await getresource(0, 'labor'))
-
     tprod = int(tprod)
-    ubprice = 0.0
+    tprice = 0.0
     for gid, uamount in f["consume"].items():
         amount = await getresource(0, gid)
         if tprod * amount <= 0: continue
-        ubprice += await getresourceunitprice(0, gid) * uamount
+        tprice += await getresourceunitprice(0, gid) * amount
         await consumeresource(0, gid, amount)
         Settings.logger.info(f"Consumer Consuming [{gid}]x{amount}")
+
     for gid, uamount in f["produce"].items():
-        a = await produceresource(0, gid, uamount * tprod, math.ceil(ubprice))
+        a = uamount * tprod
+        if a <= 0: continue
+        await produceresource(0, gid, a, max(math.ceil(tprice / a),
+                                             (await Stock.getinfo(Settings.markets["spot"].dbconn.cursor, gid))[
+                                                 'parvalue']))
         Settings.logger.info(f"Consumer Producing [{gid}]x{a}")
         await ordersell_resource(0, gid, await getresource(0, gid), math.ceil(await getresourceunitprice(0, gid)))
 
 
-async def _tick(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
-    # if cid == 0:
-    #    await deltamoney(0, await getmoney(0) * float(
-    #        await MarketConfig.read(curfactory, 'market_interestrate')) / 365)
-
-    # c = await getinfo(curfactory, cid)
-
-    # f = await _factory(curfactory, c['worktype'])
-
+async def _order(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
     rq = collections.Counter()
 
     for cf in await _companyfactories(curfactory, cid):
@@ -149,16 +157,35 @@ async def _tick(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
             else:
                 rq[gid] = amount * pu
 
-    for gid, amount in (rq - collections.Counter(await getresources(cid))).items():
+    h = dict(await getresources(cid))
+
+    for gid, amount in (rq - collections.Counter(h)).items():
         await orderbuy_resource(cid, gid, amount, None)  # TODO: Price Negotiation
 
+
+async def _produce(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
     for cf in await _companyfactories(curfactory, cid):
         tprod = cf["factorysize"]
         f = await _factory(curfactory, cf["fid"])
 
+        board = await getboard(curfactory, cid)
+        pricedelta = board.get("sellpricedelta")
+        if pricedelta is None:
+            pricedelta = {}
+
         for gid, uamount in f["produce"].items():
             moutv = await getresource(cid, gid) / float(uamount * cf["factorysize"])
-            tprod = min(max(0, tprod * (1 - moutv)), tprod)
+            prd = pricedelta.get(gid)
+            if prd is None:
+                prd = 0.0
+
+            if moutv > 1.0:  # 남음
+                prd = max(0.0, prd - 0.01)
+            elif moutv < 0.1:
+                prd = max(0.0, prd + 0.01)
+            pricedelta[gid] = prd
+
+            tprod = min(max(0, tprod * min(1, 2 - moutv)), tprod)
 
         for gid, uamount in f["consume"].items():
             tprod = min(tprod, await getresource(cid, gid) / float(uamount))
@@ -170,10 +197,13 @@ async def _tick(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
             ubprice += await getresourceunitprice(cid, gid) * uamount
             await consumeresource(cid, gid, uamount * tprod)
         for gid, uamount in f["produce"].items():
-            a = await produceresource(cid, gid, uamount * tprod, math.ceil(ubprice))
+            if uamount * tprod <= 0: continue
+            a = await produceresource(cid, gid, uamount * tprod, math.ceil(ubprice / uamount))
             Settings.logger.info(f"Company {cid} Producing [{gid}]x{a}")
             await ordersell_resource(cid, gid, await getresource(cid, gid),
-                                     math.ceil(await getresourceunitprice(cid, gid)))
+                                     math.ceil(await getresourceunitprice(cid, gid) * (1.0 + pricedelta[gid])))
+
+        await updboard(curfactory, cid, {"sellpricedelta": pricedelta})
 
     if await Wallet.getmoney(cid) <= 50000000:
         pass  # TODO: 유상증자
@@ -240,3 +270,25 @@ async def orderbuy_resource(cid: int, rid: str, amount: int, price: int | None):
 
 async def ordersell_resource(cid: int, rid: str, amount: int, price: int | None):
     await Order.ordersell_put(Settings.markets["spot"], cid, rid, amount, price)
+
+
+async def getboard(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
+    async with curfactory() as cur:
+        await cur.execute(
+            """SELECT board FROM world.companies WHERE cid = %s""", (cid,)
+        )
+        return (await cur.fetchone())[0]
+
+
+async def updboard(curfactory: Callable[[], psycopg.AsyncCursor], cid: int, value: dict):
+    async with curfactory() as cur:
+        await cur.execute(
+            """UPDATE world.companies SET board = board::JSONB || %s::JSONB WHERE cid = %s""", (json.dumps(value), cid,)
+        )
+
+
+async def setboard(curfactory: Callable[[], psycopg.AsyncCursor], cid: int, value: dict):
+    async with curfactory() as cur:
+        await cur.execute(
+            """UPDATE world.companies SET board = %s::JSONB WHERE cid = %s""", (json.dumps(value), cid,)
+        )

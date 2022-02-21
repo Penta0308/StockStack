@@ -1,14 +1,11 @@
 import asyncio
-import typing
 from typing import TYPE_CHECKING
-from abc import abstractmethod
-from enum import Enum
 
 from psycopg import rows
 
 from stockstack.settings import Settings
-from stockstack.world import Company, Wallet
-from stockstack.world.Stock import Stock
+from stockstack.world import Wallet
+from stockstack.world import Stock
 
 if TYPE_CHECKING:
     from market import Market
@@ -37,6 +34,8 @@ async def _tick(market: "Market", ticker: str):
                     )
                     r = await cur.fetchall()
                     for oa in r:
+                        if od["amount"] == 0:
+                            break
                         amount = min(abs(oa["amount"]), abs(od["amount"]))
                         price = od["price"]
                         # async with market.dbconn.transaction():
@@ -56,8 +55,6 @@ async def _tick(market: "Market", ticker: str):
                         #
                         await Stock.updlastp(market.dbconn.cursor, ticker, price)
                         od["amount"] -= amount
-                        if od["amount"] == 0:
-                            break
                 else:
                     await cur.execute(
                         """SELECT * FROM stockorders WHERE (ticker = %s) AND (ots < %s) AND (amount < 0) ORDER BY price ASC NULLS FIRST, ots ASC""",
@@ -65,6 +62,8 @@ async def _tick(market: "Market", ticker: str):
                     )
                     r = await cur.fetchall()
                     for oa in r:
+                        if od["amount"] == 0:
+                            break
                         amount = min(abs(oa["amount"]), abs(od["amount"]))
                         price = oa["price"]
                         if price is None:
@@ -86,8 +85,6 @@ async def _tick(market: "Market", ticker: str):
                         #
                         await Stock.updlastp(market.dbconn.cursor, ticker, price)
                         od["amount"] -= amount
-                        if od["amount"] == 0:
-                            break
             elif od["amount"] < 0:  # sell
                 if od["price"] is not None:
                     await cur.execute(
@@ -96,6 +93,8 @@ async def _tick(market: "Market", ticker: str):
                     )
                     r = await cur.fetchall()
                     for oa in r:
+                        if od["amount"] == 0:
+                            break
                         amount = min(abs(oa["amount"]), abs(od["amount"]))
                         price = od["price"]
                         # async with market.dbconn.transaction():
@@ -115,8 +114,6 @@ async def _tick(market: "Market", ticker: str):
                         #
                         await Stock.updlastp(market.dbconn.cursor, ticker, price)
                         od["amount"] -= amount
-                        if od["amount"] == 0:
-                            break
                 else:
                     await cur.execute(
                         """SELECT * FROM stockorders WHERE (ticker = %s) AND (ots < %s) AND (amount > 0) ORDER BY price DESC NULLS FIRST, ots ASC""",
@@ -124,6 +121,8 @@ async def _tick(market: "Market", ticker: str):
                     )
                     r = await cur.fetchall()
                     for oa in r:
+                        if od["amount"] == 0:
+                            break
                         amount = min(abs(oa["amount"]), abs(od["amount"]))
                         price = oa["price"]
                         if price is None:
@@ -145,8 +144,6 @@ async def _tick(market: "Market", ticker: str):
                         #
                         await Stock.updlastp(market.dbconn.cursor, ticker, price)
                         od["amount"] -= amount
-                        if od["amount"] == 0:
-                            break
 
 
 async def tick(market: "Market"):

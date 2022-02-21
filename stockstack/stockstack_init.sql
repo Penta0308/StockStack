@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS world.companies
     cid      SERIAL PRIMARY KEY,
     name     TEXT UNIQUE NOT NULL,
     worktype INT                  DEFAULT NULL,
-    listable BOOL        NOT NULL DEFAULT FALSE
+    listable BOOL        NOT NULL DEFAULT FALSE,
+    board    JSONB       NOT NULL DEFAULT '{}'
 );
 
 CREATE TABLE IF NOT EXISTS world.companyfactories

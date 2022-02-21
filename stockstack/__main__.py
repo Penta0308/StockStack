@@ -64,8 +64,12 @@ def run():
             return i, 1
 
         async def mastertick(i):
+            if i == 2:
+                await Company.seq1(cursor)  # 회사의 시간
             if i == 1:
-                await Company.tick(cursor)  # 회사의 시간
+                await Company.labordecay(cursor)
+            if i == 4:
+                await Company.seq2(cursor)
             # if i == 30:
             #    await Company.labordecay(cursor)
 
