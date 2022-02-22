@@ -233,14 +233,14 @@ async def _produce(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
                 ticker = await Stock.create(stockmarketcurfactory, tickergenerator.korean_word_to_initials(n), n, cid,
                                             parvalue=100)
             amt = max(10000 - await Settings.markets["stock"].stockown_get_company(cid, ticker), 0)
+            amp = await Stock.getclosp(stockmarketcurfactory, ticker)
+            if amp is None: amp = 100
             if amt > 0:
-                await Settings.markets["stock"].stockown_create(cid, ticker, amt, None)
-                Settings.logger.info(f"Company {cid} Creating new paper {amt}")
+                await Settings.markets["stock"].stockown_create(cid, ticker, amt, amp)
+                Settings.logger.info(f"Company {cid} Creating new paper {amt} {ticker}")
             await Order.ordersell_put(
                 Settings.markets["stock"],
-                cid, ticker,
-                await Settings.markets["stock"].stockown_get_company(cid, ticker),
-                await Stock.getclosp(stockmarketcurfactory, ticker))
+                cid, ticker, await Settings.markets["stock"].stockown_get_company(cid, ticker), amp)
 
 
 async def create(
