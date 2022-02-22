@@ -1,0 +1,3 @@
+dico-api @ https://github.com/dico-api/dico/archive/refs/tags/0.0.33.tar.gz
+dico-interaction @ https://github.com/dico-api/dico-interaction/archive/refs/tags/0.0.8.tar.gz
+dico-command @ https://github.com/dico-api/dico-command/archive/refs/tags/0.0.10.tar.gz

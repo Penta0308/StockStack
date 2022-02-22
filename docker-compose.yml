@@ -86,3 +86,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
+  discordbot:
+    build:
+      context: ./
+      dockerfile: discordbot.Dockerfile
+    volumes:
+      - ./discordbot:/app/discordbot:z
+      - ./config:/app/config:z
+    depends_on:
+      gateway:
+        condition: service_started
+      stockstack:
+        condition: service_started
