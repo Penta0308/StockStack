@@ -20,7 +20,7 @@ class Basic(dico_command.Addon, name="Basic"):
 
     @dico_interaction.slash("ping", description="Ping")
     async def _ping(self, ctx: dico_interaction.InteractionContext) -> None:
-        await ctx.send(f"Pong #f({self.bot.get_shard_id(ctx.guild_id)} {self.bot.get_shard(ctx.guild_id).ping} us ")
+        await ctx.send(f"Pong #{self.bot.get_shard_id(ctx.guild_id)} {self.bot.get_shard(ctx.guild_id).ping} sec ")
 
     @dico_interaction.slash("help", description="HELP!!!!!")
     async def _help(self, ctx: dico_interaction.InteractionContext) -> None:

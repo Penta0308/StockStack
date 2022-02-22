@@ -1,6 +1,7 @@
 import contextlib
 import os
 import traceback
+import psycopg_pool
 
 import dico
 import dico.utils
@@ -12,14 +13,17 @@ from stockstack.settings import Settings
 
 
 class Bot(dico_command.Bot):
-    def __init__(self, *args, **kwargs):
+    dbconnpool: psycopg_pool.AsyncConnectionPool
+
+    def __init__(self, dbconnpool: psycopg_pool.AsyncConnectionPool, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        dico_interaction.InteractionClient(client=self, guild_ids_lock=[592349689148342277, 891289955605811260],
+        dico_interaction.InteractionClient(client=self, guild_ids_lock=[891289955605811260],
                                            auto_register_commands=True)
 
         self.on_("ready", self._ready_handler)
         self.on_("shards_ready", self._shards_ready_handler)
         self.on_("interaction_error", self._interaction_error_handler)
+        self.dbconnpool = dbconnpool
 
     def load_modules(self):
         for filename in os.listdir("discordbot/cogs"):
@@ -36,13 +40,15 @@ class Bot(dico_command.Bot):
     async def _shards_ready_handler(self):
         user = await self.request_user()
         Settings.logger.info(f"User {user}, {self.guild_count} Guilds {self.shard_count} Shards")
+        await self.dbconnpool.open()
         # self.load_modules()
 
     async def _ready_handler(self, ready: dico.Ready):
         Settings.logger.info(f"Online Shard #{ready.shard_id}")
         await self.shards[ready.shard_id].update_presence(activities=[
-            dico.Activity(activity_type=dico.ActivityTypes.LISTENING, name=f"/help, #{ready.shard_id}").to_dict()],
-                                                          since=None, status="online", afk=False)
+            dico.Activity(activity_type=dico.ActivityTypes.LISTENING,
+                          name=f"/help; Shard #{ready.shard_id}").to_dict()],
+            since=None, status="online", afk=False)
 
     async def _interaction_error_handler(self, ctx: dico_interaction.InteractionContext, error):
         if isinstance(error, CheckFailed): return
