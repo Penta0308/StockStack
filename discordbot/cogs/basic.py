@@ -15,14 +15,13 @@ def unload(bot: Bot):
     Settings.logger.info(f"Un-Loaded {__file__}")
 
 
-class Basic(dico_command.Addon):
+class Basic(dico_command.Addon, name="Basic"):
     bot: Bot
-    name = "Basic"
 
-    @dico_interaction.slash(name="ping", description="Ping")
+    @dico_interaction.slash("ping", description="Ping")
     async def _ping(self, ctx: dico_interaction.InteractionContext) -> None:
         await ctx.send(f"Pong #f({self.bot.get_shard_id(ctx.guild_id)} {self.bot.get_shard(ctx.guild_id).ping} us ")
 
-    @dico_interaction.slash(name="help", description="HELP!!!!!")
+    @dico_interaction.slash("help", description="HELP!!!!!")
     async def _help(self, ctx: dico_interaction.InteractionContext) -> None:
         await ctx.send("비었음 ㅋ")

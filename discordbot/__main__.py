@@ -21,4 +21,5 @@ if __name__ == "__main__":
     stderrLogger.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
     logger.addHandler(stderrLogger)
     Settings.logger = logger
+    bot.load_modules()
     bot.run()

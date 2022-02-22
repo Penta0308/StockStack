@@ -14,7 +14,8 @@ from stockstack.settings import Settings
 class Bot(dico_command.Bot):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        dico_interaction.InteractionClient(client=self, auto_register_commands=True)
+        dico_interaction.InteractionClient(client=self, guild_ids_lock=[592349689148342277, 891289955605811260],
+                                           auto_register_commands=True)
 
         self.on_("ready", self._ready_handler)
         self.on_("shards_ready", self._shards_ready_handler)
@@ -35,7 +36,7 @@ class Bot(dico_command.Bot):
     async def _shards_ready_handler(self):
         user = await self.request_user()
         Settings.logger.info(f"User {user}, {self.guild_count} Guilds {self.shard_count} Shards")
-        self.load_modules()
+        # self.load_modules()
 
     async def _ready_handler(self, ready: dico.Ready):
         Settings.logger.info(f"Online Shard #{ready.shard_id}")
