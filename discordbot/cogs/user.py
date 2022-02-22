@@ -4,7 +4,7 @@ import dico_interaction
 import stockstack.world.Company
 from discordbot.bot import Bot
 from stockstack.settings import Settings
-from stockstack.world import Company
+from stockstack.world import Company, Wallet
 
 
 def load(bot: Bot):
@@ -26,6 +26,7 @@ class UserCog(dico_command.Addon, name="User"):
             async with dbconn.transaction():
                 discorduid = int(ctx.author.id)
                 cid = await Company.create(dbconn.cursor, f"TraderDiscord{discorduid}", None)
+                await Wallet.putmoney(cid, 0)
                 await dbconn.execute("""INSERT INTO discorduser (discorduid, cid) VALUES (%s, %s)""", (discorduid, cid))
         await ctx.send(f"Joined, cid {cid}")
 
