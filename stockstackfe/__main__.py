@@ -1,20 +1,17 @@
 import logging
-import json
 
-import aiofiles
 import psycopg
 from aiohttp import web
 
 from stockstack.settings import Settings
-from stockstack.world import Wallet
 from stockstack.world.market import MarketSQLDesc
 
 app = web.Application()
 routes = web.RouteTableDef()
-db: psycopg.AsyncConnection
+dbconn: psycopg.AsyncConnection
 
 
-async def on_startup(_):
+async def on_startup(app: web.Application):
     Settings.logger = logging.getLogger()
     Settings.logger.setLevel(logging.INFO)
     stderrlogger = logging.StreamHandler()
@@ -73,6 +70,17 @@ class CompanyView(web.View):
         return web.json_response(i)
 
 
+@routes.view(r"/company/{cid:-?[\d]+}/stockown")
+class CompanyStockOwnView(web.View):
+    @property
+    def cid(self):
+        return int(self.request.match_info["cid"])
+
+    async def get(self):
+        i = await Settings.markets["stock"].stockowns_get_company(self.cid)
+        return web.json_response(i)
+
+
 @routes.view(r"/order")
 class OrdersView(web.View):
     async def post(self):
@@ -105,6 +113,27 @@ class OrderView(web.View):
         from stockstack.world import Order
 
         i = await Order.order_get(Settings.markets["stock"], self.ots)
+        if i is None: raise web.HTTPNotFound()
+        return web.json_response(i)
+
+
+@routes.view(r"/stock")
+class StocksView(web.View):
+    async def get(self):
+        from stockstack.world import Stock
+        return web.json_response({"l": Stock.searchall(dbconn.cursor)})
+
+
+@routes.view(r"/stock/{ticker:[\w]+}")
+class StockView(web.View):
+    @property
+    def ticker(self):
+        return str(self.request.match_info["ticker"])
+
+    async def get(self):
+        from stockstack.world import Stock
+
+        i = await Stock.getinfo(Settings.markets["stock"].dbconn.cursor, self.ticker)
         if i is None: raise web.HTTPNotFound()
         return web.json_response(i)
 

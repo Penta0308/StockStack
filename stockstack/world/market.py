@@ -62,6 +62,48 @@ class MarketSQLDesc:
                     prepare=True,
                 )
 
+    async def stockowns_get_company(self, cid: int):
+        async with self.dbconn.cursor() as cur:
+            await cur.execute(
+                """SELECT ticker, amount FROM stockowns WHERE cid = %s""", (cid,)
+            )
+            return await cur.fetchall()
+
+    async def stockown_get_company(self, cid: int, ticker: str):
+        async with self.dbconn.cursor() as cur:
+            await cur.execute(
+                """SELECT coalesce((SELECT amount FROM stockowns WHERE cid = %s AND ticker = %s), 0)""",
+                (cid, ticker),
+            )
+            return (await cur.fetchone())[0]
+
+    async def stockown_priceperunit(self, cid: int, ticker: str):
+        async with self.dbconn.cursor() as cur:
+            await cur.execute(
+                """SELECT amprice FROM stockowns WHERE cid = %s AND ticker = %s""",
+                (cid, ticker),
+            )
+            return (await cur.fetchone())[0]
+
+    async def stockown_create(self, cid: int, ticker: str, amount: int, regprice: int):
+        async with self.dbconn.cursor() as cur:
+            await cur.execute(
+                """INSERT INTO stockowns (cid, ticker, amount, amprice) VALUES (%s, %s, %s, %s)
+                                 ON CONFLICT ON CONSTRAINT stockowns_cid_ticker_constraint DO UPDATE SET 
+                                 amount = stockowns.amount + excluded.amount, 
+                                 amprice = (stockowns.amprice * stockowns.amount + excluded.amprice * excluded.amount) / (stockowns.amount + excluded.amount)""",
+                (cid, ticker, amount, regprice),
+            )
+        return amount
+
+    async def stockown_delete(self, cid: int, ticker: str, amount: int):
+        async with self.dbconn.cursor() as cur:
+            await cur.execute(
+                """UPDATE stockowns SET amount = amount - %s WHERE (cid = %s) AND (ticker = %s)""",
+                (amount, cid, ticker),
+            )
+        return amount
+
 
 class Market(MarketSQLDesc):
     def __init__(self, *args, **kwargs):
@@ -139,44 +181,3 @@ class Market(MarketSQLDesc):
             ),
         )
 
-    async def stockowns_get_company(self, cid: int):
-        async with self.dbconn.cursor() as cur:
-            await cur.execute(
-                """SELECT ticker, amount FROM stockowns WHERE cid = %s""", (cid,)
-            )
-            return await cur.fetchall()
-
-    async def stockown_get_company(self, cid: int, ticker: str):
-        async with self.dbconn.cursor() as cur:
-            await cur.execute(
-                """SELECT coalesce((SELECT amount FROM stockowns WHERE cid = %s AND ticker = %s), 0)""",
-                (cid, ticker),
-            )
-            return (await cur.fetchone())[0]
-
-    async def stockown_priceperunit(self, cid: int, ticker: str):
-        async with self.dbconn.cursor() as cur:
-            await cur.execute(
-                """SELECT amprice FROM stockowns WHERE cid = %s AND ticker = %s""",
-                (cid, ticker),
-            )
-            return (await cur.fetchone())[0]
-
-    async def stockown_create(self, cid: int, ticker: str, amount: int, regprice: int):
-        async with self.dbconn.cursor() as cur:
-            await cur.execute(
-                """INSERT INTO stockowns (cid, ticker, amount, amprice) VALUES (%s, %s, %s, %s)
-                                 ON CONFLICT ON CONSTRAINT stockowns_cid_ticker_constraint DO UPDATE SET 
-                                 amount = stockowns.amount + excluded.amount, 
-                                 amprice = (stockowns.amprice * stockowns.amount + excluded.amprice * excluded.amount) / (stockowns.amount + excluded.amount)""",
-                (cid, ticker, amount, regprice),
-            )
-        return amount
-
-    async def stockown_delete(self, cid: int, ticker: str, amount: int):
-        async with self.dbconn.cursor() as cur:
-            await cur.execute(
-                """UPDATE stockowns SET amount = amount - %s WHERE (cid = %s) AND (ticker = %s)""",
-                (amount, cid, ticker),
-            )
-        return amount
