@@ -50,13 +50,14 @@ class CompaniesView(web.View):
 
         await Wallet.putmoney(cid)
 
-        raise web.HTTPSeeOther(f"/company/{cid}")
+        raise web.HTTPCreated(headers={"Location": f"/company{cid}"})
 
     # noinspection PyMethodMayBeStatic
     async def get(self):
         from stockstack.world import Company
 
         return web.json_response({"l": await Company.searchall(dbconn.cursor)})
+
 
 @routes.view(r"/company/{cid:-?[\d]+}")
 class CompanyView(web.View):
@@ -67,7 +68,9 @@ class CompanyView(web.View):
     async def get(self):
         from stockstack.world import Company
 
-        return web.json_response(await Company.getinfo(dbconn.cursor, self.cid))
+        i = await Company.getinfo(dbconn.cursor, self.cid)
+        if i is None: raise web.HTTPNotFound()
+        return web.json_response(i)
 
 
 @routes.view(r"/order")
@@ -89,7 +92,7 @@ class OrdersView(web.View):
         else:
             raise web.HTTPBadRequest()
 
-        raise web.HTTPSeeOther(f"/order/{ots}")
+        raise web.HTTPCreated(headers={"Location": f"/order/{ots}"})
 
 
 @routes.view(r"/order/{ots:-?[\d]+}")
@@ -101,7 +104,9 @@ class OrderView(web.View):
     async def get(self):
         from stockstack.world import Order
 
-        return web.json_response(await Order.order_get(Settings.markets["stock"], self.ots))
+        i = await Order.order_get(Settings.markets["stock"], self.ots)
+        if i is None: raise web.HTTPNotFound()
+        return web.json_response(i)
 
 
 @routes.view(r"/worldconfig/{kkey}")
