@@ -50,7 +50,7 @@ async def _factory(
     async with curfactory() as cur:
         cur.row_factory = rows.dict_row
         await cur.execute(
-            """SELECT fid, consume, produce, unitprice FROM world.factories WHERE fid = %s""",
+            """SELECT fid, consume, produce, unitprice, worktype FROM world.factories WHERE fid = %s""",
             (fid,),
         )
         return await cur.fetchone()

@@ -1,5 +1,5 @@
 import asyncio
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 from psycopg import rows
 
@@ -8,10 +8,10 @@ from stockstack.world import Wallet
 from stockstack.world import Stock
 
 if TYPE_CHECKING:
-    from market import Market
+    from market import Market, MarketSQLDesc
 
 
-async def _tick(market: "Market", ticker: str):
+async def _tick(market: Union["Market", "MarketSQLDesc"], ticker: str):
     async with market.dbconn.cursor() as cur:
         await cur.execute(
             """SELECT ots FROM stockorderspending WHERE ticker = %s ORDER BY ots ASC""",
@@ -146,35 +146,53 @@ async def _tick(market: "Market", ticker: str):
                         od["amount"] -= amount
 
 
-async def tick(market: "Market"):
+async def tick(market: Union["Market", "MarketSQLDesc"]):
     async with market.dbconn.cursor() as cur:
         await cur.execute("""SELECT DISTINCT ticker FROM stockorderspending""")
         td = await cur.fetchall()
     await asyncio.gather(*[_tick(market, t[0]) for t in td])
 
 
-async def clear(market: "Market"):
+async def clear(market: Union["Market", "MarketSQLDesc"]):
     async with market.dbconn.cursor() as cur:
         # noinspection SqlWithoutWhere
         await cur.execute("""DELETE FROM stockorders""")
 
 
-async def orderbuy_put(market: "Market", cid, ticker, amount, price):
+async def orderbuy_put(market: Union["Market", "MarketSQLDesc"], cid, ticker, amount, price):
     async with market.dbconn.cursor() as cur:
         await cur.execute(
             """INSERT INTO stockorderspending (cid, ticker, amount, price) VALUES (%s, %s, %s, %s)
-            ON CONFLICT ON CONSTRAINT stockorderspending_cid_ticker_constraint DO UPDATE SET (amount, price) = (excluded.amount, excluded.price)""",
+            ON CONFLICT ON CONSTRAINT stockorderspending_cid_ticker_constraint DO UPDATE SET (amount, price) = (excluded.amount, excluded.price) RETURNING ots""",
             (cid, ticker, +amount, price),
         )
+        return (await cur.fetchone())[0]
 
 
-async def ordersell_put(market: "Market", cid, ticker, amount, price):
+async def ordersell_put(market: Union["Market", "MarketSQLDesc"], cid, ticker, amount, price):
     async with market.dbconn.cursor() as cur:
         await cur.execute(
             """INSERT INTO stockorderspending (cid, ticker, amount, price) VALUES (%s, %s, %s, %s)
-            ON CONFLICT ON CONSTRAINT stockorderspending_cid_ticker_constraint DO UPDATE SET (amount, price) = (excluded.amount, excluded.price)""",
+            ON CONFLICT ON CONSTRAINT stockorderspending_cid_ticker_constraint DO UPDATE SET (amount, price) = (excluded.amount, excluded.price) RETURNING ots""",
             (cid, ticker, -amount, price),
         )
+        return (await cur.fetchone())[0]
+
+
+async def order_get(market: Union["Market", "MarketSQLDesc"], ots: int):
+    async with market.dbconn.cursor() as cur:
+        cur.row_factory = rows.dict_row
+        await cur.execute(
+            """SELECT * FROM stockorderspending WHERE ots = %s""",
+            (ots,),
+        )
+        v = await cur.fetchone()
+        if v is not None: return v
+        await cur.execute(
+            """SELECT * FROM stockorders WHERE ots = %s""",
+            (ots,),
+        )
+        return await cur.fetchone()
 
 
 """    def order_process(self):

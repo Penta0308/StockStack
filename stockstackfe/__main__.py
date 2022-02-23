@@ -4,24 +4,10 @@ import json
 import aiofiles
 import psycopg
 from aiohttp import web
+
+from stockstack.settings import Settings
 from stockstack.world import Wallet
-
-
-class Settings:
-    _settings = None
-
-    @staticmethod
-    def load():
-        if Settings._settings is None:
-            with open("config/settings.json", "r", encoding="utf-8") as f:
-                Settings._settings = json.load(f)
-
-    @staticmethod
-    def get():
-        if Settings._settings is None:
-            Settings.load()
-        return Settings._settings
-
+from stockstack.world.market import MarketSQLDesc
 
 app = web.Application()
 routes = web.RouteTableDef()
@@ -29,12 +15,19 @@ db: psycopg.AsyncConnection
 
 
 async def on_startup(_):
-    global logger
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    Settings.logger = logging.getLogger()
+    Settings.logger.setLevel(logging.INFO)
     stderrlogger = logging.StreamHandler()
     stderrlogger.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
-    logger.addHandler(stderrlogger)
+    Settings.logger.addHandler(stderrlogger)
+
+    for d in Settings.get()["stockstack"]["markets"]:
+        name = d["name"]
+        Settings.markets[name] = MarketSQLDesc(
+            name,
+            Settings.get()["database"],
+            initfile=d["initfile"]
+        )
 
     global dbconn
     dbconn = await psycopg.AsyncConnection.connect(
@@ -65,7 +58,6 @@ class CompaniesView(web.View):
 
         return web.json_response({"l": await Company.searchall(dbconn.cursor)})
 
-
 @routes.view(r"/company/{cid:-?[\d]+}")
 class CompanyView(web.View):
     @property
@@ -76,6 +68,40 @@ class CompanyView(web.View):
         from stockstack.world import Company
 
         return web.json_response(await Company.getinfo(dbconn.cursor, self.cid))
+
+
+@routes.view(r"/order")
+class OrdersView(web.View):
+    async def post(self):
+        data = await self.request.json()
+
+        from stockstack.world import Order
+
+        cid = int(data["cid"])
+        amount = int(data["amount"])
+        ticker = str(data["ticker"])
+        price = data["price"]
+
+        if amount > 0:
+            ots = Order.orderbuy_put(Settings.markets["stock"], cid, ticker, amount, price)
+        elif amount < 0:
+            ots = Order.ordersell_put(Settings.markets["stock"], cid, ticker, amount, price)
+        else:
+            raise web.HTTPBadRequest()
+
+        raise web.HTTPSeeOther(f"/order/{ots}")
+
+
+@routes.view(r"/order/{ots:-?[\d]+}")
+class OrderView(web.View):
+    @property
+    def ots(self):
+        return int(self.request.match_info["ots"])
+
+    async def get(self):
+        from stockstack.world import Order
+
+        return web.json_response(await Order.order_get(Settings.markets["stock"], self.ots))
 
 
 @routes.view(r"/worldconfig/{kkey}")

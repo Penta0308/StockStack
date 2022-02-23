@@ -20,7 +20,17 @@
     "init": {
       "population": 100000,
       "gnpp": 1000000
-    }
+    },
+    "markets": [
+      {
+        "name": "spot",
+        "initfile": "stockstack/stockstack_market_spot_init.sql"
+      },
+      {
+        "name": "stock",
+        "initfile": "stockstack/stockstack_market_default_init.sql"
+      }
+    ]
   },
   "discordbot": {
     "token": "NDAzMzczMzIxODE2NjM3NDYw.WmAErg.Qra64CGcX_347_mC2VGplv_JCPE"

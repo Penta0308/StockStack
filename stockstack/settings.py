@@ -1,15 +1,15 @@
 import json
-from typing import Dict, TYPE_CHECKING
+from typing import Dict, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
-    from stockstack.world.market import Market
+    from stockstack.world.market import Market, MarketSQLDesc
 
 
 class Settings:
     _settings = None
 
     logger = None
-    markets: Dict[str, "Market"] = dict()
+    markets: Dict[str, Union["Market", "MarketSQLDesc"]] = dict()
 
     @staticmethod
     def load():

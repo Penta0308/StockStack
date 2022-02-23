@@ -15,12 +15,13 @@ def run():
     Settings.logger.debug(f"Starting")
     Settings.load()
 
-    Settings.markets["spot"] = Market(
-        "spot",
-        Settings.get()["database"],
-        initfile="stockstack/stockstack_market_spot_init.sql",
-    )
-    Settings.markets["stock"] = Market("stock", Settings.get()["database"])
+    for d in Settings.get()["stockstack"]["markets"]:
+        name = d["name"]
+        Settings.markets[name] = Market(
+            name,
+            Settings.get()["database"],
+            initfile=d["initfile"]
+        )
 
     def cursor(*args, **kwargs) -> psycopg.AsyncCursor | psycopg.AsyncServerCursor:
         return dbconn.cursor(*args, **kwargs)
