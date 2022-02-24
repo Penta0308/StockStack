@@ -92,15 +92,17 @@ class MarketSQLDesc:
                                  ON CONFLICT ON CONSTRAINT stockowns_cid_ticker_constraint DO UPDATE SET 
                                  amount = stockowns.amount + excluded.amount, 
                                  amprice = (stockowns.amprice * stockowns.amount + excluded.amprice * excluded.amount) / (stockowns.amount + excluded.amount)""",
-                (cid, ticker, amount, regprice),
+                (cid, ticker, +amount, regprice),
             )
         return amount
 
     async def stockown_delete(self, cid: int, ticker: str, amount: int):
         async with self.dbconn.cursor() as cur:
             await cur.execute(
-                """UPDATE stockowns SET amount = amount - %s WHERE (cid = %s) AND (ticker = %s)""",
-                (amount, cid, ticker),
+                """INSERT INTO stockowns (cid, ticker, amount) VALUES (%s, %s, %s)
+                                 ON CONFLICT ON CONSTRAINT stockowns_cid_ticker_constraint DO UPDATE SET 
+                                 amount = stockowns.amount + excluded.amount""",
+                (cid, ticker, -amount),
             )
         return amount
 
