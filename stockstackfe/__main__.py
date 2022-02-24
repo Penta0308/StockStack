@@ -25,6 +25,7 @@ async def on_startup(app: web.Application):
             Settings.get()["database"],
             initfile=d["initfile"]
         )
+        await Settings.markets[name].init()
 
     global dbconn
     dbconn = await psycopg.AsyncConnection.connect(
@@ -53,7 +54,7 @@ class CompaniesView(web.View):
     async def get(self):
         from stockstack.world import Company
 
-        return web.json_response({"l": await Company.searchall(dbconn.cursor)})
+        return web.json_response(await Company.searchall(dbconn.cursor))
 
 
 @routes.view(r"/company/{cid:-?[\d]+}")
@@ -94,9 +95,9 @@ class OrdersView(web.View):
         price = data["price"]
 
         if amount > 0:
-            ots = Order.orderbuy_put(Settings.markets["stock"], cid, ticker, amount, price)
+            ots = await Order.orderbuy_put(Settings.markets["stock"], cid, ticker, amount, price)
         elif amount < 0:
-            ots = Order.ordersell_put(Settings.markets["stock"], cid, ticker, amount, price)
+            ots = await Order.ordersell_put(Settings.markets["stock"], cid, ticker, amount, price)
         else:
             raise web.HTTPBadRequest()
 
@@ -121,7 +122,7 @@ class OrderView(web.View):
 class StocksView(web.View):
     async def get(self):
         from stockstack.world import Stock
-        return web.json_response({"l": Stock.searchall(dbconn.cursor)})
+        return web.json_response(await Stock.searchall(Settings.markets["stock"].dbconn.cursor))
 
 
 @routes.view(r"/stock/{ticker:[\w]+}")
