@@ -4,6 +4,7 @@ import logging
 import aiofiles
 import psycopg
 
+from stockstack import TICK_PER_DAY
 from stockstack.settings import Settings
 from stockstack.world import WorldConfig, Wallet, Company
 from stockstack.world.market import Market
@@ -55,32 +56,33 @@ def run():
         await init()
         await asyncio.gather(*[market.init() for market in Settings.markets.values()])
         while True:
-            i = int(await WorldConfig.read(cursor, "market_tick_n"))
-            i, d = await tick(i)
+            i, n = int(await WorldConfig.read(cursor, "market_tick_n")), int(
+                await WorldConfig.read(cursor, "market_day_n"))
+            (i, n), d = await tick(i, n)
             await WorldConfig.write(cursor, "market_tick_n", str(i), update=True)
+            await WorldConfig.write(cursor, "market_day_n", str(n), update=True)
             await asyncio.sleep(d)
 
-    async def tick(i) -> (int, float):
-        if await WorldConfig.read(cursor, "market_tick_active") == "False":
-            return i, 1
+    async def tick(i, n) -> ((int, int), float):
+        if await WorldConfig.read(cursor, "market_tick_active") == "False": return (i, n), 1
 
-        async def mastertick(i):
+        # noinspection PyUnusedLocal
+        async def mastertick(i, n):
             if i == 2:
                 await Company.seq1(cursor)  # 회사의 시간
             if i == 1:
                 await Company.labordecay(cursor)
             if i == 4:
                 await Company.seq2(cursor)
-            # if i == 30:
-            #    await Company.labordecay(cursor)
-        await mastertick(i)
+
+        await mastertick(i, n)
         await asyncio.gather(
-            *[market.tick(i) for market in Settings.markets.values()]
+            *[market.tick(i, n) for market in Settings.markets.values()]
         )
-        if i >= 30:
-            return 0, 1
+        if i >= TICK_PER_DAY:
+            return (0, n + 1), 1
         else:
-            return i + 1, 0.001
+            return (i + 1, n), 0.001
 
     asyncio.run(_run(),
                 # debug=True,

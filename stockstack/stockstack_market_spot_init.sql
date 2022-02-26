@@ -30,20 +30,35 @@ CREATE TABLE IF NOT EXISTS stockowns
 
 CREATE TABLE IF NOT EXISTS stockorders
 (
-    ots    INT PRIMARY KEY,
-    cid    INT REFERENCES world.companies (cid),
-    ticker TEXT REFERENCES stocks (ticker),
-    amount INT NOT NULL,
-    price INT
+    ots       INT PRIMARY KEY,
+    cid       INT REFERENCES world.companies (cid),
+    ticker    TEXT REFERENCES stocks (ticker),
+    direction INT2 NOT NULL,
+    iamount   INT  NOT NULL,
+    pamount   INT  NOT NULL,
+    price     INT
 );
 CREATE TABLE IF NOT EXISTS stockorderspending
 (
-    ots    SERIAL PRIMARY KEY,
-    cid    INT REFERENCES world.companies (cid),
-    ticker TEXT REFERENCES stocks (ticker),
-    amount INT NOT NULL,
-    price  INT,
+    ots       SERIAL PRIMARY KEY,
+    cid       INT REFERENCES world.companies (cid),
+    ticker    TEXT REFERENCES stocks (ticker),
+    direction INT2 NOT NULL,
+    iamount   INT  NOT NULL,
+    pamount   INT  NOT NULL,
+    price     INT,
     CONSTRAINT stockorderspending_cid_ticker_constraint UNIQUE (cid, ticker)
+);
+
+CREATE TABLE IF NOT EXISTS stockordershistory
+(
+    ots       INT PRIMARY KEY,
+    cid       INT  NOT NULL,
+    ticker    TEXT NOT NULL,
+    direction INT2 NOT NULL,
+    iamount   INT  NOT NULL,
+    pamount   INT  NOT NULL DEFAULT 0,
+    price     INT
 );
 
 INSERT INTO stocks (ticker, name, closingprice, parvalue)

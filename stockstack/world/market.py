@@ -6,6 +6,7 @@ import aiofiles
 import psycopg
 from psycopg import AsyncTransaction
 
+import stockstack
 from stockstack.world import Order, Stock
 
 class MarketSQLDesc:
@@ -122,24 +123,23 @@ class Market(MarketSQLDesc):
             await self.config_read("market_pricestepsize_fe")
         )
 
-    async def tick(self, i: int):
+    async def tick(self, i: int, n: int):
         if i == 0:  # 장전동시호가 3초
             await Order.clear(self)
             pass
-        if 0 < i < 29:  # 낮 1초 * 많이
-            if i == 1:  # 낮 첫 틱
-                await Order.tick(self)  # 장전동시호가 주문처리
-                pass
-            else:
-                await Order.tick(self)  # 낮 틱 주문처리
+        elif i == 1:  # 낮 첫 틱
+            await Order.tick(self)  # 장전동시호가 주문처리
             pass
-        if i == 28:  # 장후동시호가 3초
+        elif 1 < i < stockstack.TICK_PER_DAY - 2:
+            await Order.tick(self)  # 낮 틱 주문처리
+            pass
+        elif i == stockstack.TICK_PER_DAY - 2:  # 장후동시호가 3초
             await Order.tick(self)  # 낮 마지막 틱 주문처리
             pass
-        if i == 29:  # 밤 첫 틱
+        elif i == stockstack.TICK_PER_DAY - 1:  # 밤 첫 틱
             await Order.tick(self)  # 장후동시호가 주문처리
             pass
-        if i == 30:
+        elif i == stockstack.TICK_PER_DAY:
             await Stock.updclosp(self.dbconn.cursor)
             pass
 

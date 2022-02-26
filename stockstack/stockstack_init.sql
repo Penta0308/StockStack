@@ -1,3 +1,6 @@
+CREATE SCHEMA IF NOT EXISTS addons;
+CREATE EXTENSION IF NOT EXISTS timescaledb WITH SCHEMA addons;
+
 CREATE SCHEMA IF NOT EXISTS world;
 
 CREATE TABLE IF NOT EXISTS world.factories
@@ -24,7 +27,8 @@ CREATE TABLE IF NOT EXISTS world.config
 INSERT INTO world.config (key, value)
 VALUES ('world_interestrate', '0.05'),
        ('market_tick_active', 'False'),
-       ('market_tick_n', '0')
+       ('market_tick_n', '0'),
+       ('market_day_n', '0')
 ON CONFLICT (key) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS world.companies

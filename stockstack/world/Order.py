@@ -1,5 +1,6 @@
 import asyncio
-from typing import TYPE_CHECKING, Union
+from enum import IntEnum
+from typing import TYPE_CHECKING, Union, TypedDict
 
 from psycopg import rows
 
@@ -11,40 +12,56 @@ if TYPE_CHECKING:
     from market import Market, MarketSQLDesc
 
 
+class OrderDirection(IntEnum):
+    BUY = 1
+    SELL = 2
+
+
+class OrderInfo(TypedDict):
+    ots: int
+    cid: int
+    ticker: str
+    direction: OrderDirection
+    iamount: int
+    pamount: int
+    price: Union[int, None]
+
+
 async def _tick(market: Union["Market", "MarketSQLDesc"], ticker: str):
     async with market.dbconn.cursor() as cur:
+        cur.row_factory = rows.dict_row
         await cur.execute(
             """SELECT ots FROM stockorderspending WHERE ticker = %s ORDER BY ots ASC""",
             (ticker,),
         )
         ol = await cur.fetchall()
-        for ots in (o[0] for o in ol):
+        for ots in (OrderInfo(**o)["ots"] for o in ol):
             # async with market.dbconn.transaction():
             cur.row_factory = rows.dict_row
             await cur.execute(
                 """WITH moved_rows AS (DELETE FROM stockorderspending WHERE ots = %s RETURNING *) INSERT INTO stockorders SELECT * FROM moved_rows RETURNING *""",
                 (ots,))
-            od = await cur.fetchone()
+            od = OrderInfo(**await cur.fetchone())
             #
-            if od["amount"] > 0:  # buy
+            if od["direction"] == OrderDirection.BUY:  # buy
                 if od["price"] is not None:
                     await cur.execute(
-                        """SELECT * FROM stockorders WHERE (ticker = %s) AND (ots < %s) AND (amount < 0) AND ((price <= %s) OR (price IS NULL)) ORDER BY price ASC NULLS FIRST, ots ASC""",
-                        (ticker, od["ots"], od["price"]),
+                        """SELECT * FROM stockorders WHERE (ticker = %s) AND (ots < %s) AND (pamount < iamount) AND ((price <= %s) OR (price IS NULL)) AND (direction = %s) ORDER BY price ASC NULLS FIRST, ots ASC""",
+                        (ticker, od["ots"], od["price"], OrderDirection.SELL),
                     )
                     r = await cur.fetchall()
                     for oa in r:
-                        if od["amount"] == 0:
+                        if od["iamount"] == od["pamount"]:
                             break
-                        amount = min(abs(oa["amount"]), abs(od["amount"]))
+                        amount = min(oa["iamount"] - oa["pamount"], od["iamount"] - od["pamount"])
                         price = od["price"]
                         # async with market.dbconn.transaction():
                         await cur.execute(
-                            """UPDATE stockorders SET amount = amount + %s WHERE ots = %s""",
+                            """UPDATE stockorders SET pamount = pamount + %s WHERE ots = %s""",
                             (amount, oa["ots"]),
                         )
                         await cur.execute(
-                            """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
+                            """UPDATE stockorders SET pamount = pamount + %s WHERE ots = %s""",
                             (amount, od["ots"]),
                         )
                         await market.stockown_create(od["cid"], ticker, amount, price)
@@ -54,27 +71,27 @@ async def _tick(market: Union["Market", "MarketSQLDesc"], ticker: str):
                         Settings.logger.info(f"Trading {ticker} {amount} {oa['cid']} -> {od['cid']} by {price}/unit")
                         #
                         await Stock.updlastp(market.dbconn.cursor, ticker, price)
-                        od["amount"] -= amount
+                        od["pamount"] += amount
                 else:
                     await cur.execute(
-                        """SELECT * FROM stockorders WHERE (ticker = %s) AND (ots < %s) AND (amount < 0) ORDER BY price ASC NULLS FIRST, ots ASC""",
-                        (ticker, od["ots"]),
+                        """SELECT * FROM stockorders WHERE (ticker = %s) AND (ots < %s) AND (pamount < iamount) AND (direction = %s) ORDER BY price ASC NULLS FIRST, ots ASC""",
+                        (ticker, od["ots"], OrderDirection.SELL),
                     )
                     r = await cur.fetchall()
                     for oa in r:
-                        if od["amount"] == 0:
+                        if od["iamount"] == od["pamount"]:
                             break
-                        amount = min(abs(oa["amount"]), abs(od["amount"]))
+                        amount = min(oa["iamount"] - oa["pamount"], od["iamount"] - od["pamount"])
                         price = oa["price"]
                         if price is None:
                             price = await Stock.getlastp(market.dbconn.cursor, ticker)
                         # async with market.dbconn.transaction():
                         await cur.execute(
-                            """UPDATE stockorders SET amount = amount + %s WHERE ots = %s""",
+                            """UPDATE stockorders SET pamount = pamount + %s WHERE ots = %s""",
                             (amount, oa["ots"]),
                         )
                         await cur.execute(
-                            """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
+                            """UPDATE stockorders SET pamount = pamount + %s WHERE ots = %s""",
                             (amount, od["ots"]),
                         )
                         await market.stockown_create(od["cid"], ticker, amount, price)
@@ -84,26 +101,26 @@ async def _tick(market: Union["Market", "MarketSQLDesc"], ticker: str):
                         Settings.logger.info(f"Trading {ticker} {amount} {oa['cid']} -> {od['cid']} by {price}/unit")
                         #
                         await Stock.updlastp(market.dbconn.cursor, ticker, price)
-                        od["amount"] -= amount
-            elif od["amount"] < 0:  # sell
+                        od["pamount"] += amount
+            elif od["direction"] == OrderDirection.SELL:  # sell
                 if od["price"] is not None:
                     await cur.execute(
-                        """SELECT * FROM stockorders WHERE (ticker = %s) AND (ots < %s) AND (amount > 0) AND ((price >= %s) OR (price IS NULL)) ORDER BY price DESC NULLS FIRST, ots ASC""",
-                        (ticker, od["ots"], od["price"]),
+                        """SELECT * FROM stockorders WHERE (ticker = %s) AND (ots < %s) AND (pamount < iamount) AND ((price >= %s) OR (price IS NULL)) AND (direction = %s) ORDER BY price DESC NULLS FIRST, ots ASC""",
+                        (ticker, od["ots"], od["price"], OrderDirection.BUY),
                     )
                     r = await cur.fetchall()
                     for oa in r:
-                        if od["amount"] == 0:
+                        if od["iamount"] == od["pamount"]:
                             break
-                        amount = min(abs(oa["amount"]), abs(od["amount"]))
+                        amount = min(oa["iamount"] - oa["pamount"], od["iamount"] - od["pamount"])
                         price = od["price"]
                         # async with market.dbconn.transaction():
                         await cur.execute(
-                            """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
+                            """UPDATE stockorders SET pamount = pamount + %s WHERE ots = %s""",
                             (amount, oa["ots"]),
                         )
                         await cur.execute(
-                            """UPDATE stockorders SET amount = amount + %s WHERE ots = %s""",
+                            """UPDATE stockorders SET pamount = pamount + %s WHERE ots = %s""",
                             (amount, od["ots"]),
                         )
                         await market.stockown_delete(od["cid"], ticker, amount)
@@ -113,27 +130,27 @@ async def _tick(market: Union["Market", "MarketSQLDesc"], ticker: str):
                         Settings.logger.info(f"Trading {ticker} {amount} {od['cid']} -> {oa['cid']} by {price}/unit")
                         #
                         await Stock.updlastp(market.dbconn.cursor, ticker, price)
-                        od["amount"] -= amount
+                        od["pamount"] += amount
                 else:
                     await cur.execute(
-                        """SELECT * FROM stockorders WHERE (ticker = %s) AND (ots < %s) AND (amount > 0) ORDER BY price DESC NULLS FIRST, ots ASC""",
-                        (ticker, od["ots"]),
+                        """SELECT * FROM stockorders WHERE (ticker = %s) AND (ots < %s) AND (iamount > pamount) AND (direction = %s) ORDER BY price DESC NULLS FIRST, ots ASC""",
+                        (ticker, od["ots"], OrderDirection.BUY),
                     )
                     r = await cur.fetchall()
                     for oa in r:
-                        if od["amount"] == 0:
+                        if od["iamount"] == od["pamount"]:
                             break
-                        amount = min(abs(oa["amount"]), abs(od["amount"]))
+                        amount = min(oa["iamount"] - oa["pamount"], od["iamount"] - od["pamount"])
                         price = oa["price"]
                         if price is None:
                             price = await Stock.getlastp(market.dbconn.cursor, ticker)
                         # async with market.dbconn.transaction():
                         await cur.execute(
-                            """UPDATE stockorders SET amount = amount - %s WHERE ots = %s""",
+                            """UPDATE stockorders SET pamount = pamount + %s WHERE ots = %s""",
                             (amount, oa["ots"]),
                         )
                         await cur.execute(
-                            """UPDATE stockorders SET amount = amount + %s WHERE ots = %s""",
+                            """UPDATE stockorders SET pamount = pamount + %s WHERE ots = %s""",
                             (amount, od["ots"]),
                         )
                         await market.stockown_delete(od["cid"], ticker, amount)
@@ -143,7 +160,7 @@ async def _tick(market: Union["Market", "MarketSQLDesc"], ticker: str):
                         Settings.logger.info(f"Trading {ticker} {amount} {od['cid']} -> {oa['cid']} by {price}/unit")
                         #
                         await Stock.updlastp(market.dbconn.cursor, ticker, price)
-                        od["amount"] -= amount
+                        od["pamount"] += amount
 
 
 async def tick(market: Union["Market", "MarketSQLDesc"]):
@@ -162,9 +179,9 @@ async def clear(market: Union["Market", "MarketSQLDesc"]):
 async def orderbuy_put(market: Union["Market", "MarketSQLDesc"], cid, ticker, amount, price):
     async with market.dbconn.cursor() as cur:
         await cur.execute(
-            """INSERT INTO stockorderspending (cid, ticker, amount, price) VALUES (%s, %s, %s, %s)
-            ON CONFLICT ON CONSTRAINT stockorderspending_cid_ticker_constraint DO UPDATE SET (amount, price) = (excluded.amount, excluded.price) RETURNING ots""",
-            (cid, ticker, +amount, price),
+            """INSERT INTO stockorderspending (cid, ticker, direction, iamount, price) VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT ON CONSTRAINT stockorderspending_cid_ticker_constraint DO UPDATE SET (iamount, price) = (excluded.iamount, excluded.price) RETURNING ots""",
+            (cid, ticker, OrderDirection.SELL, amount, price),
         )
         return (await cur.fetchone())[0]
 
@@ -172,9 +189,9 @@ async def orderbuy_put(market: Union["Market", "MarketSQLDesc"], cid, ticker, am
 async def ordersell_put(market: Union["Market", "MarketSQLDesc"], cid, ticker, amount, price):
     async with market.dbconn.cursor() as cur:
         await cur.execute(
-            """INSERT INTO stockorderspending (cid, ticker, amount, price) VALUES (%s, %s, %s, %s)
-            ON CONFLICT ON CONSTRAINT stockorderspending_cid_ticker_constraint DO UPDATE SET (amount, price) = (excluded.amount, excluded.price) RETURNING ots""",
-            (cid, ticker, -amount, price),
+            """INSERT INTO stockorderspending (cid, ticker, direction, iamount, price) VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT ON CONSTRAINT stockorderspending_cid_ticker_constraint DO UPDATE SET (imount, price) = (excluded.iamount, excluded.price) RETURNING ots""",
+            (cid, ticker, OrderDirection.SELL, amount, price),
         )
         return (await cur.fetchone())[0]
 
