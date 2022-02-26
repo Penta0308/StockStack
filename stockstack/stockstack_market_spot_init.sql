@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS stockorderspending
     ticker    TEXT REFERENCES stocks (ticker),
     direction INT2 NOT NULL,
     iamount   INT  NOT NULL,
-    pamount   INT  NOT NULL,
+    pamount   INT  NOT NULL DEFAULT 0,
     price     INT,
     CONSTRAINT stockorderspending_cid_ticker_constraint UNIQUE (cid, ticker)
 );
@@ -57,9 +57,21 @@ CREATE TABLE IF NOT EXISTS stockordershistory
     ticker    TEXT NOT NULL,
     direction INT2 NOT NULL,
     iamount   INT  NOT NULL,
-    pamount   INT  NOT NULL DEFAULT 0,
+    pamount   INT  NOT NULL,
     price     INT
 );
+SELECT addons.create_hypertable('stockordershistory', 'ots', chunk_time_interval => 4096, if_not_exists => TRUE);
+
+CREATE TABLE IF NOT EXISTS stockpricechart
+(
+    tickn   INT  NOT NULL,
+    ticker  TEXT NOT NULL,
+    mprice  INT,
+    hprice  INT,
+    lprice  INT,
+    tamount INT
+);
+SELECT addons.create_hypertable('stockpricechart', 'tickn', chunk_time_interval => 600, if_not_exists => TRUE);
 
 INSERT INTO stocks (ticker, name, closingprice, parvalue)
 VALUES ('labor', 'Labor', 200, 200),

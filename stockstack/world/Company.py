@@ -147,7 +147,6 @@ async def _produce_consumer(curfactory: Callable[[], psycopg.AsyncCursor]):
     for gid, uamount in f["produce"].items():
         await ordersell_resource(0, gid, await getresource(0, gid), math.ceil(await getresourceunitprice(0, gid)))
 
-
 async def _order(curfactory: Callable[[], psycopg.AsyncCursor], cid: int):
     rq = collections.Counter()
 

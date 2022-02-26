@@ -128,16 +128,16 @@ class Market(MarketSQLDesc):
             await Order.clear(self)
             pass
         elif i == 1:  # 낮 첫 틱
-            await Order.tick(self)  # 장전동시호가 주문처리
+            await Order.tick(self, i, n)  # 장전동시호가 주문처리
             pass
         elif 1 < i < stockstack.TICK_PER_DAY - 2:
-            await Order.tick(self)  # 낮 틱 주문처리
+            await Order.tick(self, i, n)  # 낮 틱 주문처리
             pass
         elif i == stockstack.TICK_PER_DAY - 2:  # 장후동시호가 3초
-            await Order.tick(self)  # 낮 마지막 틱 주문처리
+            await Order.tick(self, i, n)  # 낮 마지막 틱 주문처리
             pass
         elif i == stockstack.TICK_PER_DAY - 1:  # 밤 첫 틱
-            await Order.tick(self)  # 장후동시호가 주문처리
+            await Order.tick(self, i, n)  # 장후동시호가 주문처리
             pass
         elif i == stockstack.TICK_PER_DAY:
             await Stock.updclosp(self.dbconn.cursor)

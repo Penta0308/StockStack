@@ -14,6 +14,7 @@ async def putmoney(cid: int, amount: int | None = None):
                         + "}"
                 ).encode(encoding="UTF-8"),
         ) as resp:
+            resp.raise_for_status()
             j = await resp.json()
             return j["amount"]
 
@@ -24,6 +25,7 @@ async def deltamoney(cid: int, amount: int):
                 f'http://stockwallet:{Settings.get()["stockwallet"]["web"]["port"]}/{cid}',
                 data=f'{{"amount": {amount} }}'.encode(encoding="UTF-8"),
         ) as resp:
+            resp.raise_for_status()
             j = await resp.json()
             return j["amount"]
 
@@ -33,5 +35,6 @@ async def getmoney(cid: int):
         async with session.get(
                 f'http://stockwallet:{Settings.get()["stockwallet"]["web"]["port"]}/{cid}'
         ) as resp:
+            resp.raise_for_status()
             j = await resp.json()
             return j["amount"]

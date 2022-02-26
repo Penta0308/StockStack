@@ -84,7 +84,6 @@ async def updlastp(
             (price, ticker),
         )
 
-
 async def updclosp(
         curfactory: Callable[[], psycopg.AsyncCursor]):
     async with curfactory() as cur:
@@ -92,7 +91,6 @@ async def updclosp(
         await cur.execute(
             """UPDATE stocks SET closingprice = lastprice"""
         )
-
 
 """"async def event_close(self):
     self.refprice = self.curprice
