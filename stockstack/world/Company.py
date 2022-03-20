@@ -258,11 +258,19 @@ async def create(
     return cid
 
 
+SEARCHALL_DEFAULT_PARAMETRICS = ["cid != 0"]
+
+
 async def searchall(
-        curfactory: Callable[[], psycopg.AsyncCursor],
-):
+        curfactory: Callable[[], psycopg.AsyncCursor], parametrics: List[str] = None
+) -> List[int]:
+    if parametrics is None: parametrics = SEARCHALL_DEFAULT_PARAMETRICS
     async with curfactory() as cur:
-        await cur.execute("""SELECT cid FROM world.companies WHERE cid != 0""")
+        # noinspection SqlResolve
+        await cur.execute("""SELECT cid FROM world.companies""" +
+                          ((""" WHERE """ + (
+                              str([f'({parametric})' for parametric in parametrics]) if len(parametrics) > 1 else
+                              parametrics[0])) if len(parametrics) > 0 else ""))
         return await cur.fetchall()
 
 
