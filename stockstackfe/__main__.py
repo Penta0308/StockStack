@@ -40,21 +40,24 @@ class CompaniesView(web.View):
 
         from stockstack.world import Company
 
-        cid = await Company.create(
-            dbconn.cursor, data.get("name"), data.get("worktype")
-        )
+        try:
+            cid = await Company.create(
+                dbconn.cursor, data.get("name"), data.get("worktype")
+            )
 
-        from stockstack.world import Wallet
+            from stockstack.world import Wallet
 
-        await Wallet.putmoney(cid)
-
-        raise web.HTTPCreated(headers={"Location": f"/company{cid}"})
+            await Wallet.putmoney(cid)
+            raise web.HTTPCreated(headers={"Location": f"/company{cid}"})
+        except psycopg.errors.UniqueViolation:
+            raise web.HTTPConflict()
 
     # noinspection PyMethodMayBeStatic
     async def get(self):
         from stockstack.world import Company
+        parametrics = Company.SEARCHALL_DEFAULT_PARAMETRICS
 
-        return web.json_response(await Company.searchall(dbconn.cursor))
+        return web.json_response(await Company.searchall(dbconn.cursor, parametrics))
 
 
 @routes.view(r"/company/{cid:-?[\d]+}")
