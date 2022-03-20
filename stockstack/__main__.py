@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 
 import aiofiles
 import psycopg
@@ -55,13 +56,17 @@ def run():
     async def _run():
         await init()
         await asyncio.gather(*[market.init() for market in Settings.markets.values()])
+        # await vtrader.init(Settings.get()["stockstack"]["vtrader"]["n"])
         while True:
+            t = time.time()
             i, n = int(await WorldConfig.read(cursor, "market_tick_n")), int(
                 await WorldConfig.read(cursor, "market_day_n"))
             (i, n), d = await tick(i, n)
             await WorldConfig.write(cursor, "market_tick_n", str(i), update=True)
             await WorldConfig.write(cursor, "market_day_n", str(n), update=True)
-            await asyncio.sleep(d)
+            ds = t + d - time.time()
+            if ds > 0: await asyncio.sleep(ds)
+            #else: Settings.logger.info(f"Tick Overloading: {i}")
 
     async def tick(i, n) -> ((int, int), float):
         if await WorldConfig.read(cursor, "market_tick_active") == "False": return (i, n), 1
@@ -76,6 +81,7 @@ def run():
                 await Company.seq2(cursor)
 
         await mastertick(i, n)
+        #await vtrader.tick(i, n)
         await asyncio.gather(
             *[market.tick(i, n) for market in Settings.markets.values()]
         )
