@@ -40,7 +40,6 @@ async def on_startup(_):
             )"""
         )
 
-
 @routes.view(r"/{user_id:-?[\d]+}")
 class WalletView(web.View):
     @property

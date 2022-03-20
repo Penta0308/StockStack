@@ -27,7 +27,6 @@ class OrderInfo(TypedDict):
     pamount: int
     price: Union[int, None]
 
-
 async def _tick(market: Union["Market", "MarketSQLDesc"], ticker: str, i: int, n: int):
     async with market.dbconn.cursor() as cur:
         cur.row_factory = rows.dict_row
@@ -44,6 +43,7 @@ async def _tick(market: Union["Market", "MarketSQLDesc"], ticker: str, i: int, n
         for ots in (OrderInfo(**o)["ots"] for o in ol):
             # async with market.dbconn.transaction():
             cur.row_factory = rows.dict_row
+            # noinspection SqlInsertValues
             await cur.execute(
                 """WITH moved_rows AS (DELETE FROM stockorderspending WHERE ots = %s RETURNING *) INSERT INTO stockorders SELECT * FROM moved_rows RETURNING *""",
                 (ots,))
@@ -180,19 +180,18 @@ async def _tick(market: Union["Market", "MarketSQLDesc"], ticker: str, i: int, n
                         od["pamount"] += amount
                         tamount += amount
 
-        if tamount > 0:
-            await Stock.updlastp(market.dbconn.cursor, ticker, tp)
+        await Stock.updlastp(market.dbconn.cursor, ticker, tp)
 
-            tickn = i + n * stockstack.TICK_PER_DAY
+        tickn = i + n * stockstack.TICK_PER_DAY
 
-            await cur.execute(
-                """INSERT INTO stockpricechart (tickn, ticker, mprice, hprice, lprice, tamount) VALUES (%s, %s, %s, %s, %s, %s)""",
-                (tickn, ticker, tp, hprice, lprice, tamount))
+        await cur.execute(
+            """INSERT INTO stockpricechart (tickn, ticker, mprice, hprice, lprice, tamount) VALUES (%s, %s, %s, %s, %s, %s)""",
+            (tickn, ticker, tp, hprice, lprice, tamount))
 
 
 async def tick(market: Union["Market", "MarketSQLDesc"], i: int, n: int):
     async with market.dbconn.cursor() as cur:
-        await cur.execute("""SELECT DISTINCT ticker FROM stockorderspending""")
+        await cur.execute("""SELECT DISTINCT ticker FROM stocks""")
         td = await cur.fetchall()
     await asyncio.gather(*[_tick(market, t[0], i, n) for t in td])
 
