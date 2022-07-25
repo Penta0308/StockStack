@@ -48,5 +48,5 @@ interface LoginDiscord : Entity<LoginDiscord> {
 
 object LoginDiscords : Table<LoginDiscord>("t_logindiscord") {
     val userid = int("userid")
-    val discordid = long("discordid")
+    val discordid = long("discordid").primaryKey()
 }
