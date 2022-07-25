@@ -7,7 +7,7 @@ import com.kotlindiscord.kord.extensions.types.respond
 import kr.codenu.stockstack.core.StockStackApp
 import java.lang.management.ManagementFactory
 
-class AdminExtension : Extension() {
+class AdminExtension: Extension() {
     override val name = "admin"
     override suspend fun setup() {
         publicSlashCommand {
@@ -17,7 +17,7 @@ class AdminExtension : Extension() {
 
             action {
                 respond {
-                    content = "MEM %.2f G".format(
+                    content = "MEM %.2f MB".format(
                         ManagementFactory.getMemoryMXBean().heapMemoryUsage.used * 1.0f / 0x100000
                     )
                 }

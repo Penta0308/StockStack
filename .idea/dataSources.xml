@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
+    <data-source source="LOCAL" name="stockstack@localhost" single-connection="true" uuid="d0da0eaf-aceb-4634-a7e5-44d7f5cb42a2">
+      <driver-ref>postgresql</driver-ref>
+      <jdbc-driver>org.postgresql.Driver</jdbc-driver>
+      <jdbc-url>jdbc:postgresql://localhost:5432/stockstack</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+      <keep-alive enable="true" />
+    </data-source>
+  </component>
+</project>
